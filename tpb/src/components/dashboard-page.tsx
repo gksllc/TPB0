@@ -36,9 +36,9 @@ export function DashboardPage() {
   }, [])
 
   const navItems = [
-    { icon: HomeIcon, label: "Overview", href: "/" },
-    { icon: ClipboardIcon, label: "Appointments", href: "/appointments" },
+    { icon: HomeIcon, label: "Overview", href: "/dashboard" },
     { icon: UsersIcon, label: "Customers", href: "/customers" },
+    { icon: ClipboardIcon, label: "Appointments", href: "/appointments" },
     { icon: ClipboardIcon, label: "Reports", href: "/reports" },
     { icon: SettingsIcon, label: "Settings", href: "/settings" },
   ]
