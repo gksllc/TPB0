@@ -17,15 +17,26 @@ export function DashboardPage() {
   useEffect(() => {
     const fetchClientCount = async () => {
       try {
-        const { count, error } = await supabase
+        // First get the current session to ensure we're authenticated
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session) {
+          console.error('No active session')
+          return
+        }
+
+        // Now fetch the clients with the authenticated session
+        const { data, error } = await supabase
           .from('clients')
-          .select('*', { count: 'exact', head: true })
+          .select('id') // Only select the id field since we just need the count
+          .order('id', { ascending: true }) // Add ordering to ensure consistent results
 
         if (error) {
           throw error
         }
 
-        setClientCount(count || 0)
+        console.log('Clients data:', data)
+        setClientCount(data?.length || 0)
       } catch (error) {
         console.error('Error fetching client count:', error)
         toast.error('Failed to fetch client count')
