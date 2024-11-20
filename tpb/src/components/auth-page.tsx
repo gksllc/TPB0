@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
+import { Database } from "@/lib/database.types"
 
 type FormData = {
   email: string
@@ -58,29 +59,59 @@ export function AuthPage() {
         return false
       }
 
-      const { data, error } = await supabase.auth.signUp({
+      // Split the full name into first and last name
+      const nameParts = (formData.name ?? '').split(' ')
+      const firstname = nameParts[0] || ''
+      const lastname = nameParts.slice(1).join(' ') || ''
+
+      // First create the auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
-            full_name: formData.name,
+            firstname,
+            lastname,
           },
         },
       })
 
-      if (error) {
-        toast.error(error.message)
+      if (authError || !authData.user) {
+        console.error("Auth error:", authError)
+        toast.error(authError?.message || "Failed to create user account")
         return false
       }
 
-      if (data.user) {
-        if (data.user.identities?.length === 0) {
-          toast.error("An account with this email already exists.")
-          return false
-        }
-        toast.success("Account created successfully! Please verify your email.")
-        return true
+      if (authData.user.identities?.length === 0) {
+        toast.error("An account with this email already exists.")
+        return false
       }
+
+      // Then create the client record with role
+      const { error: clientError } = await supabase
+        .from('clients')
+        .insert([{
+          id: authData.user.id,
+          firstname,
+          lastname,
+          personalemail: formData.email,
+          personalnumber: '',
+          created_at: new Date().toISOString(),
+          role: 'client'
+        }])
+
+      if (clientError) {
+        console.error("Error creating client record:", clientError)
+        // Delete the auth user if client record creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id)
+        toast.error("Failed to complete signup. Please try again.")
+        return false
+      }
+
+      // Route to success page with email as query parameter
+      router.push(`/signup-success?email=${encodeURIComponent(formData.email)}`)
+      return true
+
     } catch (error) {
       console.error("Sign up error:", error)
       toast.error("Failed to create account. Please try again.")
