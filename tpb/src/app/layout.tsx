@@ -1,20 +1,39 @@
-import { Toaster } from "sonner"
-import { Inter } from "next/font/google"
-import "@/styles/globals.css"
+import React from "react";
+import type { Metadata } from "next";
+import localFont from "next/font/local";
+import "./globals.css";
+import { Toaster } from "sonner";
 
-const inter = Inter({ subsets: ["latin"] })
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff",
+  variable: "--font-geist-sans",
+  weight: "100 900",
+});
+
+const geistMono = localFont({
+  src: "./fonts/GeistMonoVF.woff",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+});
+
+export const metadata: Metadata = {
+  title: "The Pet Bodega",
+  description: "Management system for The Pet Bodega",
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        {children}
-        <Toaster position="top-center" />
+    <html lang="en" className="h-full">
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-full bg-background text-foreground`}>
+        <Toaster position="top-right" />
+        <div className="relative min-h-screen">
+          {children}
+        </div>
       </body>
     </html>
-  )
+  );
 }

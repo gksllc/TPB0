@@ -1,22 +1,75 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import type { Database } from '@/lib/database.types'
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ 
-    req, 
-    res,
-  }, {
-    supabaseUrl: 'https://ufeqqnxdykarmbpvjnsz.supabase.co',
-    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmZXFxbnhkeWthcm1icHZqbnN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA1NzI4NDksImV4cCI6MjA0NjE0ODg0OX0.tLQz4qFlb36BTaUFVpI39v7V3cTDs2FBTfESqb7Nj00'
-  })
+  const supabase = createMiddlewareClient<Database>({ req, res })
 
-  await supabase.auth.getSession()
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
 
-  return res
+    // Handle public routes
+    const publicRoutes = ['/', '/auth/callback']
+    if (publicRoutes.includes(req.nextUrl.pathname)) {
+      return res
+    }
+
+    // If no session, redirect to login
+    if (!session) {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+
+    // Get user role
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+
+    if (userError || !userData) {
+      console.error('User data error:', userError)
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+
+    const path = req.nextUrl.pathname
+
+    // Updated role-based route protection
+    const roleRoutes = {
+      '/dashboard': ['admin'],          // Only admin can access /dashboard
+      '/employee': ['employee'],        // Only employee can access /employee/*
+      '/client': ['client'],           // Only client can access /client/*
+    }
+
+    // Check if user has permission for the route
+    for (const [route, roles] of Object.entries(roleRoutes)) {
+      if (path.startsWith(route) && !roles.includes(userData.role)) {
+        // Redirect to appropriate homepage based on role
+        const redirectPath = userData.role === 'admin' ? '/dashboard' 
+                         : userData.role === 'client' ? '/client'
+                         : '/employee/dashboard'
+        return NextResponse.redirect(new URL(redirectPath, req.url))
+      }
+    }
+
+    return res
+  } catch (error) {
+    console.error('Middleware error:', error)
+    return NextResponse.redirect(new URL('/', req.url))
+  }
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+  ]
 } 

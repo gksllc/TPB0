@@ -1,18 +1,18 @@
-import { Metadata } from "next"
+import { DashboardNav } from "@/components/dashboard-nav"
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Manage your account and settings",
-}
-
-const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex min-h-screen flex-col">
-        {children}
-      </div>
+    <div className="flex h-screen overflow-hidden">
+      <DashboardNav />
+      <main className="flex-1 overflow-y-auto bg-background">
+        <div className="container mx-auto py-6 px-4 md:px-6">
+          {children}
+        </div>
+      </main>
     </div>
   )
-}
-
-export default DashboardLayout 
+} 
