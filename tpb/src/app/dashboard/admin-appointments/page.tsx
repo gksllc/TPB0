@@ -1,7 +1,22 @@
 'use client'
 
-import { AdminAppointmentsPage } from "@/components/admin-appointments-page"
+import dynamic from 'next/dynamic'
+import { Suspense } from 'react'
+
+// Disable static generation for this route
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+// Dynamically import the AdminAppointmentsPage with no SSR
+const AdminAppointmentsPage = dynamic(
+  () => import('@/components/admin-appointments-page').then(mod => ({ default: mod.AdminAppointmentsPage })),
+  { ssr: false }
+)
 
 export default function AdminAppointments() {
-  return <AdminAppointmentsPage />
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AdminAppointmentsPage />
+    </Suspense>
+  )
 } 
