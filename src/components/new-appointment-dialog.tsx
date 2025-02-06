@@ -22,7 +22,7 @@ interface Customer {
   phone: string
 }
 
-export const NewAppointmentDialog = () => {
+const NewAppointmentDialog = () => {
   const supabase = useSupabase()
   
   // State declarations
@@ -36,38 +36,7 @@ export const NewAppointmentDialog = () => {
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [open, setOpen] = useState(false)
 
-  const fetchCustomers = useCallback(async () => {
-    if (isLoadingCustomers || allCustomers.length > 0) return
-    
-    setIsLoadingCustomers(true)
-    try {
-      console.log('Fetching customers from Supabase...')
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          phone
-        `)
-        .eq('role', 'client')
-        .order('first_name', { ascending: true })
-      
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
-      }
-      
-      setAllCustomers(data || [])
-    } catch (error) {
-      console.error('Error fetching customers:', error)
-      toast.error('Failed to fetch customers')
-    } finally {
-      setIsLoadingCustomers(false)
-    }
-  }, [isLoadingCustomers, allCustomers.length, supabase])
-
+  // Function declarations - all functions must be declared before useEffect
   const fetchEmployees = useCallback(async () => {
     if (isLoadingEmployees || employees.length > 0) return
     
@@ -128,6 +97,38 @@ export const NewAppointmentDialog = () => {
     }
   }, [isLoadingServices, availableServices.length])
 
+  const fetchCustomers = useCallback(async () => {
+    if (isLoadingCustomers || allCustomers.length > 0) return
+    
+    setIsLoadingCustomers(true)
+    try {
+      console.log('Fetching customers from Supabase...')
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          phone
+        `)
+        .eq('role', 'client')
+        .order('first_name', { ascending: true })
+      
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+      
+      setAllCustomers(data || [])
+    } catch (error) {
+      console.error('Error fetching customers:', error)
+      toast.error('Failed to fetch customers')
+    } finally {
+      setIsLoadingCustomers(false)
+    }
+  }, [isLoadingCustomers, allCustomers.length, supabase])
+
   const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
     const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
     return selectedServices.reduce((total, service) => {
@@ -136,16 +137,17 @@ export const NewAppointmentDialog = () => {
     }, 0)
   }, [availableServices])
 
+  // Effects - must come after all function declarations
   useEffect(() => {
     if (open) {
-      fetchCustomers()
       fetchEmployees()
       fetchServices()
+      fetchCustomers()
     } else {
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open, fetchCustomers, fetchEmployees, fetchServices])
+  }, [open, fetchEmployees, fetchServices, fetchCustomers])
 
   return (
     <div>
