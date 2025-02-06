@@ -16,10 +16,10 @@ export default function SignupSuccessPage({ searchParams }: { searchParams: { em
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          We've sent you an email with a verification link. Please click the link to activate your account.
+          We&apos;ve sent you an email with a verification link. Please click the link to activate your account.
         </p>
         <p className="text-sm text-muted-foreground">
-          If you don't see the email, please check your spam folder.
+          If you don&apos;t see the email, please check your spam folder.
         </p>
       </CardContent>
       <CardFooter className="flex flex-col space-y-4">

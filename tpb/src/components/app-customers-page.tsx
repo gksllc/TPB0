@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { SearchIcon, PlusIcon, Pencil } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,7 +35,7 @@ export function AppCustomersPage() {
   const [newUserDialogOpen, setNewUserDialogOpen] = useState(false)
   const router = useRouter()
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('users')
@@ -64,7 +64,7 @@ export function AppCustomersPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
     const checkRole = async () => {
@@ -90,7 +90,7 @@ export function AppCustomersPage() {
 
   useEffect(() => {
     fetchCustomers()
-  }, [supabase])
+  }, [fetchCustomers])
 
   const filteredCustomers = customers.filter(customer => {
     const fullName = `${customer.first_name} ${customer.last_name}`.toLowerCase()

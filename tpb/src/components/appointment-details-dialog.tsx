@@ -109,22 +109,14 @@ export function AppointmentDetailsDialog({
   onOpenChange,
   onUpdate
 }: AppointmentDetailsDialogProps) {
-  if (!appointment) return null
-
   const supabase = createClientComponentClient<Database>()
   const [isEditing, setIsEditing] = useState(false)
-  const [date, setDate] = useState(appointment.appointment_date)
-  const [time, setTime] = useState(appointment.appointment_time)
-  const [status, setStatus] = useState(appointment.status)
-  const [employeeId, setEmployeeId] = useState(appointment.employee_id)
-  const [employeeName, setEmployeeName] = useState(appointment.employee_name)
-  const [services, setServices] = useState<string[]>(
-    Array.isArray(appointment.service_items) 
-      ? appointment.service_items 
-      : typeof appointment.service_items === 'string'
-        ? JSON.parse(appointment.service_items)
-        : []
-  )
+  const [date, setDate] = useState("")
+  const [time, setTime] = useState("")
+  const [status, setStatus] = useState("")
+  const [employeeId, setEmployeeId] = useState("")
+  const [employeeName, setEmployeeName] = useState("")
+  const [services, setServices] = useState<string[]>([])
   const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string, price: number, description?: string}>>([])
   const [petSize, setPetSize] = useState<string>('')
   const [employees, setEmployees] = useState<Array<{id: string, name: string}>>([])
@@ -136,82 +128,6 @@ export function AppointmentDetailsDialog({
   const [showDoubleBookingWarning, setShowDoubleBookingWarning] = useState(false)
   const [pendingTime, setPendingTime] = useState<string | null>(null)
   const [overlappingAppointment, setOverlappingAppointment] = useState<any>(null)
-
-  // Fetch pet details when dialog opens
-  useEffect(() => {
-    const fetchPetDetails = async () => {
-      if (!open || !appointment.pet_id) return
-
-      try {
-        const { data: pet, error } = await supabase
-          .from('pets')
-          .select('size')
-          .eq('id', appointment.pet_id)
-          .single()
-
-        if (error) {
-          console.error('Error fetching pet details:', error)
-          return
-        }
-
-        if (pet) {
-          console.log('Fetched pet size:', pet.size)
-          setPetSize(pet.size || '')
-        }
-      } catch (error) {
-        console.error('Error fetching pet details:', error)
-      }
-    }
-
-    fetchPetDetails()
-  }, [open, appointment.pet_id, supabase])
-
-  // Remove the useEffect for fetching services and make it a regular function
-  const fetchServices = async () => {
-    if (!open || !isEditing || availableServices.length > 0) return
-
-    try {
-      console.log('Fetching services from Clover...')
-      const response = await fetch('/api/clover/items')
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Failed to fetch services:', errorData)
-        throw new Error(errorData.error || 'Failed to fetch services')
-      }
-      const data = await response.json()
-      
-      if (!data.success || !data.data) {
-        console.error('Invalid services response:', data)
-        throw new Error('Invalid services response')
-      }
-
-      console.log('Fetched services:', data.data)
-      
-      // Map the services to the correct format
-      const formattedServices = data.data.map((service: any) => ({
-        id: service.id,
-        name: service.name,
-        price: service.price || 0,
-        description: service.description || ''
-      }))
-
-      setAvailableServices(formattedServices)
-    } catch (error) {
-      console.error('Error fetching services:', error)
-      toast.error('Failed to fetch services')
-    }
-  }
-
-  // Update the calculateTotalDuration function to match the new appointment form
-  const calculateTotalDuration = (selectedServiceIds: string[]): number => {
-    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.name))
-    // Get duration from service name or use default 30 minutes
-    return selectedServices.reduce((total, service) => {
-      // Try to extract duration from service name (e.g., "Service Name - 45 min")
-      const durationMatch = service.name.match(/(\d+)\s*min/i)
-      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
-    }, 0)
-  }
 
   // Update the debouncedFetchTimes function to properly handle appointment durations
   const debouncedFetchTimes = useCallback(
@@ -353,13 +269,12 @@ export function AppointmentDetailsDialog({
         setIsLoadingTimes(false)
       }
     }, 500),
-    [appointment.id, supabase, availableServices]
+    [appointment?.id, supabase, availableServices]
   )
 
-  // Reset form state when dialog is closed
+  // Initialize state with appointment data
   useEffect(() => {
-    if (!open) {
-      setIsEditing(false)
+    if (appointment) {
       setDate(appointment.appointment_date)
       setTime(appointment.appointment_time)
       setStatus(appointment.status)
@@ -372,11 +287,84 @@ export function AppointmentDetailsDialog({
             ? JSON.parse(appointment.service_items)
             : []
       )
-      setServiceSearchQuery("")
-      setShowServiceSelector(false)
-      setAvailableTimes([])
     }
-  }, [open, appointment])
+  }, [appointment])
+
+  // Fetch pet details when dialog opens
+  useEffect(() => {
+    const fetchPetDetails = async () => {
+      if (!open || !appointment.pet_id) return
+
+      try {
+        const { data: pet, error } = await supabase
+          .from('pets')
+          .select('size')
+          .eq('id', appointment.pet_id)
+          .single()
+
+        if (error) {
+          console.error('Error fetching pet details:', error)
+          return
+        }
+
+        if (pet) {
+          console.log('Fetched pet size:', pet.size)
+          setPetSize(pet.size || '')
+        }
+      } catch (error) {
+        console.error('Error fetching pet details:', error)
+      }
+    }
+
+    fetchPetDetails()
+  }, [open, appointment.pet_id, supabase])
+
+  // Remove the useEffect for fetching services and make it a regular function
+  const fetchServices = async () => {
+    if (!open || !isEditing || availableServices.length > 0) return
+
+    try {
+      console.log('Fetching services from Clover...')
+      const response = await fetch('/api/clover/items')
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Failed to fetch services:', errorData)
+        throw new Error(errorData.error || 'Failed to fetch services')
+      }
+      const data = await response.json()
+      
+      if (!data.success || !data.data) {
+        console.error('Invalid services response:', data)
+        throw new Error('Invalid services response')
+      }
+
+      console.log('Fetched services:', data.data)
+      
+      // Map the services to the correct format
+      const formattedServices = data.data.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        price: service.price || 0,
+        description: service.description || ''
+      }))
+
+      setAvailableServices(formattedServices)
+    } catch (error) {
+      console.error('Error fetching services:', error)
+      toast.error('Failed to fetch services')
+    }
+  }
+
+  // Update the calculateTotalDuration function to match the new appointment form
+  const calculateTotalDuration = (selectedServiceIds: string[]): number => {
+    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.name))
+    // Get duration from service name or use default 30 minutes
+    return selectedServices.reduce((total, service) => {
+      // Try to extract duration from service name (e.g., "Service Name - 45 min")
+      const durationMatch = service.name.match(/(\d+)\s*min/i)
+      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
+    }, 0)
+  }
 
   // Keep the useEffect that calls fetchServices and fetchEmployees
   useEffect(() => {
@@ -591,6 +579,8 @@ export function AppointmentDetailsDialog({
     setPendingTime(null)
     setOverlappingAppointment(null)
   }
+
+  if (!appointment) return null
 
   return (
     <>

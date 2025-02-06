@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -621,7 +621,7 @@ export function ClientAppointmentsPage() {
   }
 
   // Calculate total duration of selected services
-  const calculateTotalDuration = (selectedServiceIds: string[]): number => {
+  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
     const selectedServicesDetails = services.map(serviceId => {
       const service = services.find(s => s.id === serviceId)
       return service || null
@@ -634,7 +634,7 @@ export function ClientAppointmentsPage() {
       const durationMatch = service.name.match(/(\d+)\s*min/i)
       return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
     }, 0)
-  }
+  }, [services])
 
   // Filter services based on search query and pet size
   const filteredServices = services.filter((service) => {
@@ -722,7 +722,7 @@ export function ClientAppointmentsPage() {
     }
 
     fetchAvailableTimes()
-  }, [selectedDate, selectedGroomer, selectedServices])
+  }, [selectedDate, selectedGroomer, selectedServices, calculateTotalDuration])
 
   return (
     <div className="flex h-screen w-full bg-slate-50">
