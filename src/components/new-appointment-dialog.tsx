@@ -150,7 +150,7 @@ export function NewAppointmentDialog({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // All state declarations
+  // State declarations
   const [date, setDate] = useState<Date | undefined>()
   const [time, setTime] = useState<string | undefined>()
   const [petName, setPetName] = useState('')
@@ -172,27 +172,14 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // All memoized functions
-  const fetchCustomers = useCallback(async () => {
-    if (isLoadingCustomers) return
-    
-    setIsLoadingCustomers(true)
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, email, phone')
-        .eq('role', 'client')
-        .order('first_name', { ascending: true })
-      
-      if (error) throw error
-      setAllCustomers(data || [])
-    } catch (error: unknown) {
-      console.error('Error fetching customers:', error)
-      toast.error('Failed to fetch customers')
-    } finally {
-      setIsLoadingCustomers(false)
-    }
-  }, [supabase, isLoadingCustomers])
+  // Define all functions before they are used
+  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
+    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
+    return selectedServices.reduce((total, service) => {
+      const durationMatch = service.name.match(/(\d+)\s*min/i)
+      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
+    }, 0)
+  }, [availableServices])
 
   const fetchEmployees = useCallback(async () => {
     if (isLoadingEmployees) return
@@ -247,15 +234,88 @@ export function NewAppointmentDialog({
     }
   }, [isLoadingServices])
 
-  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
-    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
-    return selectedServices.reduce((total, service) => {
-      const durationMatch = service.name.match(/(\d+)\s*min/i)
-      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
-    }, 0)
-  }, [availableServices])
+  const fetchCustomers = useCallback(async () => {
+    if (isLoadingCustomers) return
+    
+    setIsLoadingCustomers(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email, phone')
+        .eq('role', 'client')
+        .order('first_name', { ascending: true })
+      
+      if (error) throw error
+      setAllCustomers(data || [])
+    } catch (error: unknown) {
+      console.error('Error fetching customers:', error)
+      toast.error('Failed to fetch customers')
+    } finally {
+      setIsLoadingCustomers(false)
+    }
+  }, [supabase, isLoadingCustomers])
 
-  // All useEffect hooks after function declarations
+  const fetchAvailableTimes = useCallback(async () => {
+    setAvailableTimes([])
+    setTime(undefined)
+
+    if (!date || !employee || !services.length) {
+      return
+    }
+
+    setIsLoadingTimes(true)
+    try {
+      const totalDuration = calculateTotalDuration(services)
+      const formattedDate = format(date, 'yyyy-MM-dd')
+
+      const response = await fetch(
+        `/api/clover/availability?date=${formattedDate}&groomerId=${employee.id}&duration=${totalDuration}`
+      )
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch availability')
+      }
+      
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch availability')
+      }
+
+      let availableSlots = data.data.availableTimeSlots || []
+
+      if (isSameDay(date, new Date())) {
+        const now = new Date()
+        availableSlots = availableSlots.filter((timeSlot: string) => {
+          const [time, period] = timeSlot.split(' ')
+          const [hours, minutes] = time.split(':').map(Number)
+          let adjustedHours = hours
+          
+          if (period === 'PM' && hours !== 12) {
+            adjustedHours += 12
+          } else if (period === 'AM' && hours === 12) {
+            adjustedHours = 0
+          }
+
+          const slotDate = new Date(date)
+          slotDate.setHours(adjustedHours, minutes, 0, 0)
+          const bufferTime = new Date(now.getTime() + 30 * 60000)
+
+          return isAfter(slotDate, bufferTime)
+        })
+      }
+
+      setAvailableTimes(availableSlots)
+    } catch (error) {
+      console.error('Error fetching availability:', error)
+      toast.error('Failed to fetch available times')
+      setAvailableTimes([])
+    } finally {
+      setIsLoadingTimes(false)
+    }
+  }, [date, employee, services, calculateTotalDuration])
+
+  // useEffect hooks after all function declarations
   useEffect(() => {
     if (open) {
       void fetchCustomers()
@@ -266,6 +326,10 @@ export function NewAppointmentDialog({
       setServiceSearchQuery("")
     }
   }, [open, fetchCustomers, fetchEmployees, fetchServices])
+
+  useEffect(() => {
+    void fetchAvailableTimes()
+  }, [date, employee, services, calculateTotalDuration])
 
   // Effect for fetching customer's pets
   useEffect(() => {
@@ -317,71 +381,6 @@ export function NewAppointmentDialog({
       setCustomerPets([])
     }
   }, [open])
-
-  // Effect for fetching available times
-  useEffect(() => {
-    const fetchAvailableTimes = async () => {
-      setAvailableTimes([])
-      setTime(undefined)
-
-      if (!date || !employee || !services.length) {
-        return
-      }
-
-      setIsLoadingTimes(true)
-      try {
-        const totalDuration = calculateTotalDuration(services)
-        const formattedDate = format(date, 'yyyy-MM-dd')
-
-        const response = await fetch(
-          `/api/clover/availability?date=${formattedDate}&groomerId=${employee.id}&duration=${totalDuration}`
-        )
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch availability')
-        }
-        
-        const data = await response.json()
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch availability')
-        }
-
-        let availableSlots = data.data.availableTimeSlots || []
-
-        if (isSameDay(date, new Date())) {
-          const now = new Date()
-          availableSlots = availableSlots.filter((timeSlot: string) => {
-            const [time, period] = timeSlot.split(' ')
-            const [hours, minutes] = time.split(':').map(Number)
-            let adjustedHours = hours
-            
-            if (period === 'PM' && hours !== 12) {
-              adjustedHours += 12
-            } else if (period === 'AM' && hours === 12) {
-              adjustedHours = 0
-            }
-
-            const slotDate = new Date(date)
-            slotDate.setHours(adjustedHours, minutes, 0, 0)
-            const bufferTime = new Date(now.getTime() + 30 * 60000)
-
-            return isAfter(slotDate, bufferTime)
-          })
-        }
-
-        setAvailableTimes(availableSlots)
-      } catch (error) {
-        console.error('Error fetching availability:', error)
-        toast.error('Failed to fetch available times')
-        setAvailableTimes([])
-      } finally {
-        setIsLoadingTimes(false)
-      }
-    }
-
-    void fetchAvailableTimes()
-  }, [date, employee, services, calculateTotalDuration])
 
   const handleSubmit = async () => {
     if (!date || !time || !selectedPet || !services.length || !employee || !selectedCustomer) {

@@ -13,48 +13,30 @@ export interface Database {
         Row: {
           id: string
           email: string
-          first_name: string
-          last_name: string
+          first_name: string | null
+          last_name: string | null
           phone: string | null
-          address: string | null
-          city: string | null
-          state: string | null
-          zip_code: string | null
-          preferred_communication: string
-          secondary_contacts: Json
-          role: 'admin' | 'client' | 'employee'
+          role: string
           created_at: string
           updated_at: string
         }
         Insert: {
-          id: string
+          id?: string
           email: string
-          first_name: string
-          last_name: string
+          first_name?: string | null
+          last_name?: string | null
           phone?: string | null
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          zip_code?: string | null
-          preferred_communication?: string
-          secondary_contacts?: Json
-          role?: 'admin' | 'client' | 'employee'
+          role?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           email?: string
-          first_name?: string
-          last_name?: string
+          first_name?: string | null
+          last_name?: string | null
           phone?: string | null
-          address?: string | null
-          city?: string | null
-          state?: string | null
-          zip_code?: string | null
-          preferred_communication?: string
-          secondary_contacts?: Json
-          role?: 'admin' | 'client' | 'employee'
+          role?: string
           created_at?: string
           updated_at?: string
         }
@@ -62,35 +44,53 @@ export interface Database {
       pets: {
         Row: {
           id: string
-          created_at: string
           name: string
           breed: string | null
+          user_id: string
+          size: string | null
+          dob: string | null
+          gender: string | null
           age: number | null
-          owner_id: string
-          species: string
-          image_url: string | null
+          weight: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          created_at?: string
           name: string
           breed?: string | null
+          user_id: string
+          size?: string | null
+          dob?: string | null
+          gender?: string | null
           age?: number | null
-          owner_id: string
-          species?: string
-          image_url?: string | null
+          weight?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          created_at?: string
           name?: string
           breed?: string | null
+          user_id?: string
+          size?: string | null
+          dob?: string | null
+          gender?: string | null
           age?: number | null
-          owner_id?: string
-          species?: string
-          image_url?: string | null
+          weight?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
     }
   }
 }
@@ -100,4 +100,5 @@ interface SecondaryContact {
   phone: string
   email: string
   relationship: string
+} 
 } 

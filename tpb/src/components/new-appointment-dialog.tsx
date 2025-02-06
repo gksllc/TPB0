@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import * as React from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { format, isSameDay, isAfter, parse } from 'date-fns'
 import { Check, ChevronsUpDown } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "../components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -11,23 +12,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
+} from "../components/ui/dialog"
+import { Input } from "../components/ui/input"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "../components/ui/select"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+} from "../components/ui/popover"
+import { cn } from "../lib/utils"
 import { createBrowserClient } from "@supabase/ssr"
-import type { Database } from "@/lib/database.types"
+import type { Database } from "../lib/database.types"
 import { toast } from "sonner"
 
 interface NewAppointmentDialogProps {
@@ -132,7 +133,7 @@ export function NewAppointmentDialog({
   )
 
   // Fetch customers from Supabase
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     if (isLoadingCustomers || allCustomers.length > 0) return
     
     setIsLoadingCustomers(true)
@@ -167,10 +168,10 @@ export function NewAppointmentDialog({
     } finally {
       setIsLoadingCustomers(false)
     }
-  }
+  }, [isLoadingCustomers, allCustomers.length, supabase])
 
   // Fetch employees
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     if (isLoadingEmployees || employees.length > 0) return
     
     setIsLoadingEmployees(true)
@@ -194,10 +195,10 @@ export function NewAppointmentDialog({
     } finally {
       setIsLoadingEmployees(false)
     }
-  }
+  }, [isLoadingEmployees, employees.length])
 
   // Fetch services
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     if (isLoadingServices || availableServices.length > 0) return
     
     setIsLoadingServices(true)
@@ -233,7 +234,7 @@ export function NewAppointmentDialog({
     } finally {
       setIsLoadingServices(false)
     }
-  }
+  }, [isLoadingServices, availableServices.length])
 
   // Fetch employees, services, and customers when dialog opens
   useEffect(() => {
@@ -246,7 +247,7 @@ export function NewAppointmentDialog({
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open])
+  }, [open, fetchEmployees, fetchServices, fetchCustomers])
 
   // Fetch customer's pets when a customer is selected
   useEffect(() => {
