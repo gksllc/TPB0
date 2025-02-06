@@ -25,6 +25,7 @@ export const NewUserForm = ({ onClose, onUpdate }: NewUserFormProps) => {
     first_name: '',
     last_name: '',
     email: '',
+    password: '',
     phone: '',
     address: '',
     city: '',
@@ -49,7 +50,16 @@ export const NewUserForm = ({ onClose, onUpdate }: NewUserFormProps) => {
     setLoading(true)
 
     try {
-      const result = await createUser(formData)
+      // Only send required fields to createUser
+      const userData = {
+        email: formData.email,
+        password: formData.password,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone: formData.phone
+      }
+      
+      const result = await createUser(userData)
       
       if (!result.success) {
         toast.error('Failed to create user')
@@ -108,6 +118,20 @@ export const NewUserForm = ({ onClose, onUpdate }: NewUserFormProps) => {
             onChange={handleChange}
             placeholder="Email"
             required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            value={formData.password}
+            onChange={handleChange}
+            placeholder="Password"
+            required
+            minLength={6}
           />
         </div>
 
