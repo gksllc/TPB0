@@ -1,6 +1,6 @@
 'use client'
 
-import dynamic from 'next/dynamic'
+import dynamicImport from 'next/dynamic'
 import { Suspense } from 'react'
 
 // Route configuration
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 // Dynamically import DashboardNav with no SSR
-const DashboardNav = dynamic(
+const DashboardNav = dynamicImport(
   () => import('@/components/dashboard-nav').then(mod => ({ default: mod.DashboardNav })),
   { ssr: false }
 )
