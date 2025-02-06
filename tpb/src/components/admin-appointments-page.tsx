@@ -135,10 +135,10 @@ export function AdminAppointmentsPage() {
 
   // Fetch orders only when orders tab is selected
   useEffect(() => {
-    if (activeTab === 'orders' && orders.length === 0) {
+    if (activeTab === 'orders') {
       fetchOrders()
     }
-  }, [activeTab])
+  }, [activeTab, fetchOrders])
 
   const handleUpdateAppointment = async (appointmentId: string, status: string) => {
     try {
@@ -263,11 +263,15 @@ export function AdminAppointmentsPage() {
   })
 
   useEffect(() => {
-    if (open && isEditing && (!employees.length || !availableServices.length)) {
-      fetchEmployees()
-      fetchServices()
+    if (open && isEditing) {
+      if (!employees.length) {
+        fetchEmployees()
+      }
+      if (!availableServices.length) {
+        fetchServices()
+      }
     }
-  }, [open, isEditing, employees.length, availableServices.length, orders.length])
+  }, [open, isEditing, fetchEmployees, fetchServices])
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

@@ -132,7 +132,7 @@ export function NewAppointmentDialog({
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open])
+  }, [open, fetchEmployees, fetchServices, fetchCustomers])
 
   // Fetch customers from Supabase
   const fetchCustomers = async () => {
@@ -310,11 +310,6 @@ export function NewAppointmentDialog({
       setTime(undefined)
 
       if (!date || !employee || !services.length) {
-        console.log('Missing required fields for fetching times:', {
-          hasDate: !!date,
-          hasEmployee: !!employee,
-          servicesCount: services.length
-        })
         return
       }
 
@@ -324,36 +319,20 @@ export function NewAppointmentDialog({
         const totalDuration = calculateTotalDuration(services)
         const formattedDate = format(date, 'yyyy-MM-dd')
 
-        console.log('Fetching available times with params:', {
-          date: formattedDate,
-          employeeId: employee.id,
-          duration: totalDuration,
-          selectedServices: services
-        })
-
-        // Get all possible time slots from the availability endpoint
         const response = await fetch(
           `/api/clover/availability?date=${formattedDate}&groomerId=${employee.id}&duration=${totalDuration}`
         )
         
         if (!response.ok) {
           const errorText = await response.text()
-          console.error('Failed to fetch availability:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorText
-          })
           throw new Error('Failed to fetch availability')
         }
         
         const data = await response.json()
         
         if (!data.success) {
-          console.error('API returned error:', data.error)
           throw new Error(data.error || 'Failed to fetch availability')
         }
-
-        console.log('API Response:', data)
 
         let availableSlots = data.data.availableTimeSlots || []
 
@@ -361,33 +340,22 @@ export function NewAppointmentDialog({
         if (isSameDay(date, new Date())) {
           const now = new Date()
           availableSlots = availableSlots.filter(timeSlot => {
-            // Parse the time slot and create a comparable date object
             const [time, period] = timeSlot.split(' ')
             const [hours, minutes] = time.split(':').map(Number)
             let adjustedHours = hours
             
-            // Convert to 24-hour format
             if (period === 'PM' && hours !== 12) {
               adjustedHours += 12
             } else if (period === 'AM' && hours === 12) {
               adjustedHours = 0
             }
 
-            // Create a date object for comparison
             const slotDate = new Date(date)
             slotDate.setHours(adjustedHours, minutes, 0, 0)
-
-            // Add a buffer (e.g., 30 minutes) to the current time
             const bufferTime = new Date(now.getTime() + 30 * 60000)
 
             return isAfter(slotDate, bufferTime)
           })
-        }
-
-        if (availableSlots.length === 0) {
-          console.log('No available time slots after filtering')
-        } else {
-          console.log('Available time slots after filtering:', availableSlots)
         }
 
         setAvailableTimes(availableSlots)
@@ -401,7 +369,7 @@ export function NewAppointmentDialog({
     }
 
     fetchAvailableTimes()
-  }, [date, employee, services])
+  }, [date, employee, services, calculateTotalDuration])
 
   const handleSubmit = async () => {
     if (!date || !time || !selectedPet || !services.length || !employee || !selectedCustomer) {

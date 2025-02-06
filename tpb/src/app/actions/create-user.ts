@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/lib/database.types'
-import { AdminUserAttributes } from '@supabase/supabase-js'
+import { AdminUserAttributes, User } from '@supabase/supabase-js'
 
 interface UserData {
   email: string
@@ -33,7 +33,10 @@ export async function createUser(formData: {
       return { error: 'Failed to check existing users' }
     }
 
-    const existingUser = users?.users.find((user: UserData) => user.email === formData.email)
+    // Type assertion to ensure we're working with the correct type
+    const existingUser = (users?.users as User[])?.find(user => 
+      user.email?.toLowerCase() === formData.email.toLowerCase()
+    )
     
     if (existingUser) {
       return { error: 'User already exists' }

@@ -141,10 +141,36 @@ export function ProfileEditPage() {
   }, [])
 
   const debouncedUpdate = useCallback(
-    (field: keyof UserProfile, value: string) => {
-      updateProfile(field, value)
-    },
-    [updateProfile]
+    debounce(async (field: keyof UserProfile, value: string) => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        // Special handling for email updates
+        if (field === 'email') {
+          const { error: emailError } = await supabase.auth.updateUser({
+            email: value,
+          })
+          if (emailError) throw emailError
+        }
+
+        const { error } = await supabase
+          .from('users')
+          .update({ [field]: value })
+          .eq('id', user.id)
+
+        if (error) throw error
+
+        // Show success message only for immediate feedback fields
+        if (['phone', 'preferred_communication'].includes(field)) {
+          toast.success(`${field.replace('_', ' ')} updated successfully`)
+        }
+      } catch (error) {
+        console.error(`Error updating ${field}:`, error)
+        toast.error(`Failed to update ${field.replace('_', ' ')}`)
+      }
+    }, 1000),
+    [supabase]
   )
 
   const handleFieldUpdate = (field: keyof UserProfile, value: string) => {

@@ -280,13 +280,7 @@ export function AppointmentDetailsDialog({
       setStatus(appointment.status)
       setEmployeeId(appointment.employee_id)
       setEmployeeName(appointment.employee_name)
-      setServices(
-        Array.isArray(appointment.service_items) 
-          ? appointment.service_items 
-          : typeof appointment.service_items === 'string'
-            ? JSON.parse(appointment.service_items)
-            : []
-      )
+      setServices(appointment.service_items)
     }
   }, [appointment])
 
@@ -356,15 +350,13 @@ export function AppointmentDetailsDialog({
   }
 
   // Update the calculateTotalDuration function to match the new appointment form
-  const calculateTotalDuration = (selectedServiceIds: string[]): number => {
-    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.name))
-    // Get duration from service name or use default 30 minutes
+  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
+    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
     return selectedServices.reduce((total, service) => {
-      // Try to extract duration from service name (e.g., "Service Name - 45 min")
       const durationMatch = service.name.match(/(\d+)\s*min/i)
       return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
     }, 0)
-  }
+  }, [availableServices])
 
   // Keep the useEffect that calls fetchServices and fetchEmployees
   useEffect(() => {
