@@ -1,6 +1,6 @@
 import { createClient } from "./client"
 import { supabaseConfig } from "./config"
-import type { AuthError, PostgrestError } from "@supabase/supabase-js"
+import { AuthError, PostgrestError } from "@supabase/supabase-js"
 
 export type AuthResponse = {
   success: boolean
@@ -8,15 +8,19 @@ export type AuthResponse = {
   data?: any
 }
 
-// Helper function to convert PostgrestError to AuthError format
-const createAuthError = (error: PostgrestError | Error): AuthError => {
-  return {
-    name: error.name || 'AuthError',
-    message: error.message,
-    status: 400,
-    code: 'custom_error',
-    __isAuthError: true
+// Custom AuthError class
+class CustomAuthError extends AuthError {
+  constructor(error: PostgrestError | Error) {
+    super(error.message)
+    this.name = error.name || 'AuthError'
+    this.status = 400
+    this.code = 'custom_error'
   }
+}
+
+// Helper function to convert PostgrestError to AuthError
+const createAuthError = (error: PostgrestError | Error): AuthError => {
+  return new CustomAuthError(error)
 }
 
 export const supabaseAuth = {
