@@ -1,5 +1,34 @@
 import { NextResponse } from 'next/server'
 
+interface Item {
+  id: string
+  name: string
+  price?: number | null
+  description?: string
+  categories?: {
+    elements: Array<{
+      name: string
+    }>
+  }
+  hidden?: boolean
+  tax?: any
+}
+
+interface FormattedItem {
+  id: string
+  name: string
+  price: number
+  description: string
+  categories: string[]
+  hidden: boolean
+  available: boolean
+  taxRates: any[]
+}
+
+interface CloverResponse {
+  elements: Item[]
+}
+
 // Use the correct API base URL for Clover API v3
 const CLOVER_API_BASE_URL = 'https://api.clover.com/v3'
 
@@ -47,7 +76,7 @@ export async function GET() {
       throw new Error(`Failed to fetch items: ${errorText}`)
     }
 
-    const itemsData = await itemsResponse.json()
+    const itemsData: CloverResponse = await itemsResponse.json()
     console.log('Found items:', {
       total: itemsData.elements?.length || 0,
       sample: itemsData.elements?.[0]
@@ -60,18 +89,18 @@ export async function GET() {
 
     // Map all items to a consistent format
     const formattedItems = itemsData.elements
-      .filter(item => item.price !== undefined && item.price !== null) // Only include items with prices
-      .map((item: any) => ({
+      .filter((item: Item) => item.price !== undefined && item.price !== null)
+      .map((item: Item) => ({
         id: item.id,
         name: item.name,
-        price: item.price || 0,
+        price: item.price!,
         description: item.description || '',
-        categories: (item.categories?.elements || []).map((cat: any) => cat.name),
+        categories: (item.categories?.elements || []).map((cat) => cat.name),
         hidden: item.hidden || false,
         available: !item.hidden,
         taxRates: item.tax ? [item.tax] : []
       }))
-      .sort((a, b) => a.name.localeCompare(b.name)) // Sort by name
+      .sort((a: FormattedItem, b: FormattedItem) => a.name.localeCompare(b.name)) // Sort by name
 
     console.log('Formatted items:', {
       count: formattedItems.length,
