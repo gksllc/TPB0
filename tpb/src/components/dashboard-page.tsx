@@ -44,14 +44,18 @@ interface Order {
 // Type for upcoming appointments
 interface UpcomingAppointment {
   id: string
+  c_order_id?: string
   appointment_date: string
   appointment_time: string
   pet_name: string
+  pet_id: string
   service_items: string[]
   status: string
   employee_name: string
+  employee_id: string
   pet_image_url: string | null
   appointment_duration: number
+  pet_size?: string
 }
 
 // Type for month options
@@ -163,6 +167,21 @@ export function DashboardPage(): JSX.Element {
       // Filter for upcoming appointments and sort by date and time
       const upcoming = data.data
         .filter((apt: any) => apt.status.toLowerCase() !== 'cancelled')
+        .map((apt: any) => ({
+          id: apt.id,
+          c_order_id: apt.c_order_id,
+          appointment_date: apt.appointment_date,
+          appointment_time: apt.appointment_time,
+          pet_name: apt.pet_name,
+          pet_id: apt.pet_id,
+          service_items: apt.service_items,
+          status: apt.status,
+          employee_name: apt.employee_name,
+          employee_id: apt.employee_id,
+          pet_image_url: apt.pet_image_url,
+          appointment_duration: apt.appointment_duration,
+          pet_size: apt.pet_size
+        }))
         .sort((a: any, b: any) => {
           const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`)
           const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`)
