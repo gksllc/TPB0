@@ -190,7 +190,7 @@ export function AppointmentDetailsDialog({
         console.log('Existing appointments:', existingAppointments)
 
         // Convert existing appointments to time ranges
-        const bookedRanges = existingAppointments.map(apt => {
+        const bookedRanges = existingAppointments.map((apt: any) => {
           const [hours, minutes] = apt.appointment_time.split(':').map(Number)
           const startTime = new Date(formattedDate)
           startTime.setHours(hours, minutes, 0, 0)
@@ -198,13 +198,13 @@ export function AppointmentDetailsDialog({
           return { startTime, endTime }
         })
 
-        console.log('Booked time ranges:', bookedRanges.map(range => ({
+        console.log('Booked time ranges:', bookedRanges.map((range: { startTime: Date; endTime: Date }) => ({
           start: format(range.startTime, 'h:mm a'),
           end: format(range.endTime, 'h:mm a')
         })))
 
         // Filter out times that would overlap with existing appointments
-        availableSlots = availableSlots.filter(timeSlot => {
+        availableSlots = availableSlots.filter((timeSlot: string) => {
           // Convert time slot to Date object
           const [time, period] = timeSlot.split(' ')
           const [hours, minutes] = time.split(':').map(Number)
@@ -221,7 +221,7 @@ export function AppointmentDetailsDialog({
           const slotEndTime = new Date(slotStartTime.getTime() + totalDuration * 60000)
 
           // Check if this time slot overlaps with any booked range
-          const hasOverlap = bookedRanges.some(range => {
+          const hasOverlap = bookedRanges.some((range: { startTime: Date; endTime: Date }) => {
             // Check for any overlap between the slot and the booked range
             const slotOverlapsStart = slotStartTime < range.endTime && slotStartTime >= range.startTime
             const slotOverlapsEnd = slotEndTime > range.startTime && slotEndTime <= range.endTime
