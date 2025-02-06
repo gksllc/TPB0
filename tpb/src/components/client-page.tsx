@@ -212,14 +212,6 @@ export function ClientPage() {
     router.push('/client/profile')
   }
 
-  const handleFieldUpdate = (field: keyof UserProfile, value: string) => {
-    // Format phone number if this is the phone field
-    const formattedValue = field === 'phone' ? formatPhoneNumber(value) : value
-    
-    setProfile(prev => ({ ...prev, [field]: formattedValue }))
-    debouncedUpdate(field, formattedValue)
-  }
-
   return (
     <div className="flex h-screen w-full bg-slate-50">
       <aside className="w-64 bg-slate-800 text-white p-6">
