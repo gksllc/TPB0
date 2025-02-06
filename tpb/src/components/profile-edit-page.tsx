@@ -105,10 +105,13 @@ export function ProfileEditPage() {
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
         const { data: profile, error } = await supabase
           .from('users')
           .select('*')
-          .eq('id', userId)
+          .eq('id', user.id)
           .single()
 
         if (error) throw error
@@ -119,10 +122,8 @@ export function ProfileEditPage() {
       }
     }
 
-    if (userId) {
-      void fetchUserProfile()
-    }
-  }, [userId])
+    void fetchUserProfile()
+  }, [])
 
   useEffect(() => {
     const checkPolicies = async () => {
@@ -173,7 +174,7 @@ export function ProfileEditPage() {
         toast.error(`Failed to update ${field.replace('_', ' ')}`)
       }
     }, 1000),
-    []
+    [supabase]
   )
 
   const handleFieldUpdate = (field: keyof UserProfile, value: string) => {

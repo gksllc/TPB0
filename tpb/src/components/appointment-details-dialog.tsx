@@ -131,6 +131,7 @@ export function AppointmentDetailsDialog({
   const [showDoubleBookingWarning, setShowDoubleBookingWarning] = useState(false)
   const [pendingTime, setPendingTime] = useState<string | null>(null)
   const [overlappingAppointment, setOverlappingAppointment] = useState<any>(null)
+  const [isLoadingServices, setIsLoadingServices] = useState(false)
 
   // Update the debouncedFetchTimes function to properly handle appointment durations
   const debouncedFetchTimes = useCallback(
@@ -316,28 +317,20 @@ export function AppointmentDetailsDialog({
     fetchPetDetails()
   }, [open, appointment?.pet_id, supabase])
 
-  // Remove the useEffect for fetching services and make it a regular function
-  const fetchServices = async () => {
-    if (!open || !isEditing || availableServices.length > 0) return
-
+  // Fix the useCallback warning by using an inline function
+  const fetchServices = useCallback(async () => {
+    if (isLoadingServices || availableServices.length > 0) return
+    
+    setIsLoadingServices(true)
     try {
-      console.log('Fetching services from Clover...')
       const response = await fetch('/api/clover/items')
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Failed to fetch services:', errorData)
-        throw new Error(errorData.error || 'Failed to fetch services')
-      }
+      if (!response.ok) throw new Error('Failed to fetch services')
       const data = await response.json()
       
       if (!data.success || !data.data) {
-        console.error('Invalid services response:', data)
         throw new Error('Invalid services response')
       }
-
-      console.log('Fetched services:', data.data)
       
-      // Map the services to the correct format
       const formattedServices = data.data.map((service: any) => ({
         id: service.id,
         name: service.name,
@@ -349,8 +342,17 @@ export function AppointmentDetailsDialog({
     } catch (error) {
       console.error('Error fetching services:', error)
       toast.error('Failed to fetch services')
+    } finally {
+      setIsLoadingServices(false)
     }
-  }
+  }, [isLoadingServices, availableServices.length])
+
+  // Include fetchServices in the dependency array
+  useEffect(() => {
+    if (open) {
+      void fetchServices()
+    }
+  }, [open, fetchServices])
 
   // Update the calculateTotalDuration function to match the new appointment form
   const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
