@@ -95,7 +95,7 @@ export interface Database {
   }
 }
 
-interface SecondaryContact {
+export interface SecondaryContact {
   name: string
   phone: string
   email: string

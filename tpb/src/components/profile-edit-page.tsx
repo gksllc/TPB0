@@ -103,27 +103,26 @@ export function ProfileEditPage() {
 
   // Fetch user data when component mounts
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchUserProfile = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        const { data, error } = await supabase
+        const { data: profile, error } = await supabase
           .from('users')
           .select('*')
-          .eq('id', user.id)
+          .eq('id', userId)
           .single()
 
         if (error) throw error
-        setProfile(data)
+        setProfile(profile)
       } catch (error) {
-        console.error('Error fetching profile:', error)
-        toast.error('Failed to load profile')
+        console.error('Error fetching user profile:', error)
+        toast.error('Failed to fetch user profile')
       }
     }
 
-    fetchProfile()
-  }, [supabase])
+    if (userId) {
+      void fetchUserProfile()
+    }
+  }, [userId])
 
   useEffect(() => {
     const checkPolicies = async () => {
@@ -174,7 +173,7 @@ export function ProfileEditPage() {
         toast.error(`Failed to update ${field.replace('_', ' ')}`)
       }
     }, 1000),
-    [supabase]
+    []
   )
 
   const handleFieldUpdate = (field: keyof UserProfile, value: string) => {
