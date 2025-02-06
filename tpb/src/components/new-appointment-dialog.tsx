@@ -52,6 +52,13 @@ interface Pet {
   size?: string | null
 }
 
+interface Service {
+  id: string
+  name: string
+  price: number
+  description: string
+}
+
 // Add helper function to determine size category
 const getSizeCategory = (size: string | null | undefined): 'standard' | 'large' | 'x-large' => {
   if (!size) return 'standard'
@@ -108,7 +115,7 @@ export function NewAppointmentDialog({
   const [employee, setEmployee] = useState<{id: string, name: string} | null>(null)
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
   const [employees, setEmployees] = useState<Array<{id: string, name: string}>>([])
-  const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([])
+  const [availableServices, setAvailableServices] = useState<Service[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
   const [isLoadingServices, setIsLoadingServices] = useState(false)
@@ -123,19 +130,6 @@ export function NewAppointmentDialog({
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
-
-  // Fetch employees, services, and customers when dialog opens
-  useEffect(() => {
-    if (open) {
-      fetchEmployees()
-      fetchServices()
-      fetchCustomers()
-    } else {
-      // Reset search queries when dialog closes
-      setCustomerSearchQuery("")
-      setServiceSearchQuery("")
-    }
-  }, [open, fetchEmployees, fetchServices, fetchCustomers])
 
   // Fetch customers from Supabase
   const fetchCustomers = async () => {
@@ -228,8 +222,8 @@ export function NewAppointmentDialog({
       const formattedServices = data.data.map((service: any) => ({
         id: service.id,
         name: service.name,
-        price: service.price || 0,
-        description: service.description || ''
+        price: service.price ?? 0,
+        description: service.description ?? ''
       }))
 
       setAvailableServices(formattedServices)
@@ -240,6 +234,19 @@ export function NewAppointmentDialog({
       setIsLoadingServices(false)
     }
   }
+
+  // Fetch employees, services, and customers when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchEmployees()
+      fetchServices()
+      fetchCustomers()
+    } else {
+      // Reset search queries when dialog closes
+      setCustomerSearchQuery("")
+      setServiceSearchQuery("")
+    }
+  }, [open])
 
   // Fetch customer's pets when a customer is selected
   useEffect(() => {
@@ -342,7 +349,7 @@ export function NewAppointmentDialog({
         // If it's the same day, filter out past times
         if (isSameDay(date, new Date())) {
           const now = new Date()
-          availableSlots = availableSlots.filter(timeSlot => {
+          availableSlots = availableSlots.filter((timeSlot: string) => {
             const [time, period] = timeSlot.split(' ')
             const [hours, minutes] = time.split(':').map(Number)
             let adjustedHours = hours
@@ -397,7 +404,7 @@ export function NewAppointmentDialog({
         .map(service => ({
           id: service.id,
           name: service.name,
-          price: service.price || 0
+          price: service.price
         }))
 
       // Calculate total price and duration
