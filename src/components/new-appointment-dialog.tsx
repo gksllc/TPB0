@@ -150,7 +150,7 @@ export function NewAppointmentDialog({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // State declarations
+  // All state declarations
   const [date, setDate] = useState<Date | undefined>()
   const [time, setTime] = useState<string | undefined>()
   const [petName, setPetName] = useState('')
@@ -172,7 +172,7 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Fetch functions with useCallback
+  // All memoized functions
   const fetchCustomers = useCallback(async () => {
     if (isLoadingCustomers) return
     
@@ -255,7 +255,7 @@ export function NewAppointmentDialog({
     }, 0)
   }, [availableServices])
 
-  // Effects
+  // All useEffect hooks after function declarations
   useEffect(() => {
     if (open) {
       void fetchCustomers()
