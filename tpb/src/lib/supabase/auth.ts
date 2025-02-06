@@ -14,6 +14,7 @@ const createAuthError = (error: PostgrestError | Error): AuthError => {
     name: error.name || 'AuthError',
     message: error.message,
     status: 400,
+    code: 'custom_error',
     __isAuthError: true
   }
 }
