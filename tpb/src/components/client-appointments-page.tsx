@@ -638,8 +638,11 @@ export function ClientAppointmentsPage() {
   // Filter services based on search query and pet size
   const filteredServices = services.filter((service) => {
     // First check if service matches the pet size
-    if (selectedPet && !isServiceMatchingPetSize(service.name, selectedPet.size)) {
-      return false
+    if (selectedPet) {
+      const selectedPetDetails = pets.find(pet => pet.name === selectedPet)
+      if (!isServiceMatchingPetSize(service.name, selectedPetDetails?.size)) {
+        return false
+      }
     }
 
     // Then apply search filter if there's a search query
