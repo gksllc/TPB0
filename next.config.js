@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
-const config = {
+const nextConfig = {
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
@@ -18,6 +19,7 @@ const config = {
         pathname: '/**',
       },
     ],
+    domains: ['ufeqqnxdykarmbpvjnsz.supabase.co'],
   },
   typescript: {
     // Temporarily allow TypeScript errors during build for deployment
@@ -29,4 +31,4 @@ const config = {
   },
 }
 
-module.exports = config 
+module.exports = nextConfig 

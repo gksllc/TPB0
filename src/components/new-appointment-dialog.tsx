@@ -126,86 +126,7 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Function declarations
-  const fetchEmployees = async () => {
-    if (isLoadingEmployees || employees.length > 0) return
-    
-    setIsLoadingEmployees(true)
-    try {
-      const response = await fetch('/api/clover/employees')
-      if (!response.ok) throw new Error('Failed to fetch employees')
-      const data = await response.json()
-      
-      const groomers = data.data
-        .filter((emp: any) => emp.customId === 'GROOMER')
-        .map((emp: any) => ({
-          id: emp.id,
-          name: emp.name
-        }))
-      setEmployees(groomers)
-    } catch (error) {
-      console.error('Error fetching employees:', error)
-      toast.error('Failed to fetch employees')
-    } finally {
-      setIsLoadingEmployees(false)
-    }
-  }
-
-  const fetchServices = async () => {
-    if (isLoadingServices || availableServices.length > 0) return
-    
-    setIsLoadingServices(true)
-    try {
-      const response = await fetch('/api/clover/items')
-      if (!response.ok) throw new Error('Failed to fetch services')
-      const data = await response.json()
-      
-      if (!data.success || !data.data) {
-        throw new Error('Invalid services response')
-      }
-      
-      const formattedServices = data.data.map((service: any) => ({
-        id: service.id,
-        name: service.name,
-        price: service.price || 0,
-        description: service.description || ''
-      }))
-      setAvailableServices(formattedServices)
-    } catch (error) {
-      console.error('Error fetching services:', error)
-      toast.error('Failed to fetch services')
-    } finally {
-      setIsLoadingServices(false)
-    }
-  }
-
-  const fetchCustomers = async () => {
-    if (isLoadingCustomers || allCustomers.length > 0) return
-    
-    setIsLoadingCustomers(true)
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          phone
-        `)
-        .eq('role', 'client')
-        .order('first_name', { ascending: true })
-      
-      if (error) throw error
-      setAllCustomers(data || [])
-    } catch (error) {
-      console.error('Error fetching customers:', error)
-      toast.error('Failed to fetch customers')
-    } finally {
-      setIsLoadingCustomers(false)
-    }
-  }
-
+  // Memoized functions
   const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
     const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
     return selectedServices.reduce((total, service) => {
@@ -214,8 +135,87 @@ export function NewAppointmentDialog({
     }, 0)
   }, [availableServices])
 
-  // Effects
+  // Initialize data loading
   useEffect(() => {
+    const fetchCustomers = async () => {
+      if (isLoadingCustomers || allCustomers.length > 0) return
+      
+      setIsLoadingCustomers(true)
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select(`
+            id,
+            first_name,
+            last_name,
+            email,
+            phone
+          `)
+          .eq('role', 'client')
+          .order('first_name', { ascending: true })
+        
+        if (error) throw error
+        setAllCustomers(data || [])
+      } catch (error) {
+        console.error('Error fetching customers:', error)
+        toast.error('Failed to fetch customers')
+      } finally {
+        setIsLoadingCustomers(false)
+      }
+    }
+
+    const fetchEmployees = async () => {
+      if (isLoadingEmployees || employees.length > 0) return
+      
+      setIsLoadingEmployees(true)
+      try {
+        const response = await fetch('/api/clover/employees')
+        if (!response.ok) throw new Error('Failed to fetch employees')
+        const data = await response.json()
+        
+        const groomers = data.data
+          .filter((emp: any) => emp.customId === 'GROOMER')
+          .map((emp: any) => ({
+            id: emp.id,
+            name: emp.name
+          }))
+        setEmployees(groomers)
+      } catch (error) {
+        console.error('Error fetching employees:', error)
+        toast.error('Failed to fetch employees')
+      } finally {
+        setIsLoadingEmployees(false)
+      }
+    }
+
+    const fetchServices = async () => {
+      if (isLoadingServices || availableServices.length > 0) return
+      
+      setIsLoadingServices(true)
+      try {
+        const response = await fetch('/api/clover/items')
+        if (!response.ok) throw new Error('Failed to fetch services')
+        const data = await response.json()
+        
+        if (!data.success || !data.data) {
+          throw new Error('Invalid services response')
+        }
+        
+        const formattedServices = data.data.map((service: any) => ({
+          id: service.id,
+          name: service.name,
+          price: service.price || 0,
+          description: service.description || ''
+        }))
+        setAvailableServices(formattedServices)
+      } catch (error) {
+        console.error('Error fetching services:', error)
+        toast.error('Failed to fetch services')
+      } finally {
+        setIsLoadingServices(false)
+      }
+    }
+
     if (open) {
       void fetchCustomers()
       void fetchEmployees()
@@ -224,7 +224,7 @@ export function NewAppointmentDialog({
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open]) // Remove function dependencies since they're now stable
+  }, [open, isLoadingCustomers, allCustomers.length, isLoadingEmployees, employees.length, isLoadingServices, availableServices.length, supabase])
 
   // Effect for fetching customer's pets
   useEffect(() => {
