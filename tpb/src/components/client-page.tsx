@@ -39,6 +39,18 @@ type Pet = {
   image_url?: string | null
 }
 
+type UserProfile = {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+}
+
 const calculateAge = (dob: string): number => {
   const birthDate = new Date(dob)
   const today = new Date()
