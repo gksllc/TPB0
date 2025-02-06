@@ -22,7 +22,7 @@ interface Customer {
   phone: string
 }
 
-const NewAppointmentDialog = () => {
+export function NewAppointmentDialog() {
   const supabase = useSupabase()
   
   // State declarations
@@ -36,74 +36,85 @@ const NewAppointmentDialog = () => {
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [open, setOpen] = useState(false)
 
-  // Function declarations - all functions must be declared before useEffect
-  const fetchEmployees = useCallback(async () => {
+  // Function declarations using function keyword for proper hoisting
+  function fetchEmployees() {
     if (isLoadingEmployees || employees.length > 0) return
     
     setIsLoadingEmployees(true)
     try {
-      const response = await fetch('/api/clover/employees')
-      if (!response.ok) throw new Error('Failed to fetch employees')
-      const data = await response.json()
-      
-      const groomers = data.data
-        .filter((emp: any) => emp.customId === 'GROOMER')
-        .map((emp: any) => ({
-          id: emp.id,
-          name: emp.name
-        }))
-      
-      setEmployees(groomers)
+      return fetch('/api/clover/employees')
+        .then(response => {
+          if (!response.ok) throw new Error('Failed to fetch employees')
+          return response.json()
+        })
+        .then(data => {
+          const groomers = data.data
+            .filter((emp: any) => emp.customId === 'GROOMER')
+            .map((emp: any) => ({
+              id: emp.id,
+              name: emp.name
+            }))
+          
+          setEmployees(groomers)
+        })
+        .catch(error => {
+          console.error('Error fetching employees:', error)
+          toast.error('Failed to fetch employees')
+        })
+        .finally(() => {
+          setIsLoadingEmployees(false)
+        })
     } catch (error) {
       console.error('Error fetching employees:', error)
       toast.error('Failed to fetch employees')
-    } finally {
       setIsLoadingEmployees(false)
     }
-  }, [isLoadingEmployees, employees.length])
+  }
 
-  const fetchServices = useCallback(async () => {
+  function fetchServices() {
     if (isLoadingServices || availableServices.length > 0) return
     
     setIsLoadingServices(true)
     try {
-      console.log('Fetching services from Clover...')
-      const response = await fetch('/api/clover/items')
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Failed to fetch services:', errorData)
-        throw new Error(errorData.error || 'Failed to fetch services')
-      }
-      const data = await response.json()
-      
-      if (!data.success || !data.data) {
-        console.error('Invalid services response:', data)
-        throw new Error('Invalid services response')
-      }
-      
-      const formattedServices = data.data.map((service: any) => ({
-        id: service.id,
-        name: service.name,
-        price: service.price || 0,
-        description: service.description || ''
-      }))
+      return fetch('/api/clover/items')
+        .then(response => {
+          if (!response.ok) throw new Error('Failed to fetch services')
+          return response.json()
+        })
+        .then(data => {
+          if (!data.success || !data.data) {
+            throw new Error('Invalid services response')
+          }
+          
+          const formattedServices = data.data.map((service: any) => ({
+            id: service.id,
+            name: service.name,
+            price: service.price || 0,
+            description: service.description || ''
+          }))
 
-      setAvailableServices(formattedServices)
+          setAvailableServices(formattedServices)
+        })
+        .catch(error => {
+          console.error('Error fetching services:', error)
+          toast.error('Failed to fetch services')
+        })
+        .finally(() => {
+          setIsLoadingServices(false)
+        })
     } catch (error) {
       console.error('Error fetching services:', error)
       toast.error('Failed to fetch services')
-    } finally {
       setIsLoadingServices(false)
     }
-  }, [isLoadingServices, availableServices.length])
+  }
 
-  const fetchCustomers = useCallback(async () => {
+  function fetchCustomers() {
     if (isLoadingCustomers || allCustomers.length > 0) return
     
     setIsLoadingCustomers(true)
     try {
-      console.log('Fetching customers from Supabase...')
-      const { data, error } = await supabase
+      supabase
         .from('users')
         .select(`
           id,
@@ -114,30 +125,33 @@ const NewAppointmentDialog = () => {
         `)
         .eq('role', 'client')
         .order('first_name', { ascending: true })
-      
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
-      }
-      
-      setAllCustomers(data || [])
+        .then(({ data, error }) => {
+          if (error) throw error
+          setAllCustomers(data || [])
+        })
+        .catch(error => {
+          console.error('Error fetching customers:', error)
+          toast.error('Failed to fetch customers')
+        })
+        .finally(() => {
+          setIsLoadingCustomers(false)
+        })
     } catch (error) {
       console.error('Error fetching customers:', error)
       toast.error('Failed to fetch customers')
-    } finally {
       setIsLoadingCustomers(false)
     }
-  }, [isLoadingCustomers, allCustomers.length, supabase])
+  }
 
-  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
+  function calculateTotalDuration(selectedServiceIds: string[]): number {
     const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
     return selectedServices.reduce((total, service) => {
       const durationMatch = service.name.match(/(\d+)\s*min/i)
       return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
     }, 0)
-  }, [availableServices])
+  }
 
-  // Effects - must come after all function declarations
+  // Effects
   useEffect(() => {
     if (open) {
       fetchEmployees()
@@ -147,7 +161,7 @@ const NewAppointmentDialog = () => {
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open, fetchEmployees, fetchServices, fetchCustomers])
+  }, [open])
 
   return (
     <div>
