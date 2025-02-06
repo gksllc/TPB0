@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const CLOVER_API_BASE_URL = 'https://api.clover.com/v3'
+const CLOVER_API_BASE_URL = process.env.NEXT_PUBLIC_CLOVER_API_BASE || 'https://api.clover.com'
 
 export async function GET() {
   try {

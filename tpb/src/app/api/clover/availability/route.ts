@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/database.types'
 
-const CLOVER_API_BASE_URL = process.env.NEXT_PUBLIC_CLOVER_API_URL || 'https://api.clover.com/v3'
+const CLOVER_API_BASE_URL = process.env.NEXT_PUBLIC_CLOVER_API_BASE || 'https://api.clover.com'
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
