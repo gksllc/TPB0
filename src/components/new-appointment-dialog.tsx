@@ -126,8 +126,8 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Define all functions before useEffect
-  const fetchEmployees = useCallback(async () => {
+  // Function declarations
+  const fetchEmployees = async () => {
     if (isLoadingEmployees || employees.length > 0) return
     
     setIsLoadingEmployees(true)
@@ -149,9 +149,9 @@ export function NewAppointmentDialog({
     } finally {
       setIsLoadingEmployees(false)
     }
-  }, [isLoadingEmployees, employees.length])
+  }
 
-  const fetchServices = useCallback(async () => {
+  const fetchServices = async () => {
     if (isLoadingServices || availableServices.length > 0) return
     
     setIsLoadingServices(true)
@@ -177,9 +177,9 @@ export function NewAppointmentDialog({
     } finally {
       setIsLoadingServices(false)
     }
-  }, [isLoadingServices, availableServices.length])
+  }
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchCustomers = async () => {
     if (isLoadingCustomers || allCustomers.length > 0) return
     
     setIsLoadingCustomers(true)
@@ -204,7 +204,7 @@ export function NewAppointmentDialog({
     } finally {
       setIsLoadingCustomers(false)
     }
-  }, [isLoadingCustomers, allCustomers.length, supabase])
+  }
 
   const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
     const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
@@ -214,17 +214,17 @@ export function NewAppointmentDialog({
     }, 0)
   }, [availableServices])
 
-  // Now define useEffect hooks
+  // Effects
   useEffect(() => {
     if (open) {
-      fetchCustomers()
-      fetchEmployees()
-      fetchServices()
+      void fetchCustomers()
+      void fetchEmployees()
+      void fetchServices()
     } else {
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open, fetchCustomers, fetchEmployees, fetchServices])
+  }, [open]) // Remove function dependencies since they're now stable
 
   // Effect for fetching customer's pets
   useEffect(() => {
