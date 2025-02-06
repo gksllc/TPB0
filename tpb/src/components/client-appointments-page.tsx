@@ -59,7 +59,7 @@ type Appointment = Omit<RawAppointment, 'pets'> & {
   employee_id: string // Clover employee ID
   employee_name: string // Employee name
   service_items: string[] // Array of service names
-  pet_image_url?: string | null
+  pet_image_url: string | null
 }
 
 type Groomer = {
@@ -191,7 +191,7 @@ export function ClientAppointmentsPage() {
         console.log('Raw appointments data:', data)
 
         // Transform the data to match our Appointment type
-        const transformedAppointments: Appointment[] = (data || []).map(rawData => {
+        const transformedAppointments: Appointment[] = (data || []).map((rawData: RawAppointment) => {
           console.log('Processing appointment:', rawData)
           // Parse service_items if it's a string, or provide empty array as fallback
           const service_items = (() => {
