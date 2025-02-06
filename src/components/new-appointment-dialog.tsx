@@ -126,16 +126,7 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Calculate total duration helper function
-  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
-    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
-    return selectedServices.reduce((total, service) => {
-      const durationMatch = service.name.match(/(\d+)\s*min/i)
-      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
-    }, 0)
-  }, [availableServices])
-
-  // Fetch functions with useCallback
+  // Function declarations
   const fetchCustomers = useCallback(async () => {
     if (isLoadingCustomers || allCustomers.length > 0) return
     
@@ -215,7 +206,15 @@ export function NewAppointmentDialog({
     }
   }, [isLoadingServices, availableServices.length])
 
-  // Initialize data loading
+  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
+    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
+    return selectedServices.reduce((total, service) => {
+      const durationMatch = service.name.match(/(\d+)\s*min/i)
+      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
+    }, 0)
+  }, [availableServices])
+
+  // Effects
   useEffect(() => {
     if (open) {
       fetchCustomers()
