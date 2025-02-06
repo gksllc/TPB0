@@ -1,11 +1,21 @@
 import { createClient } from "./client"
 import { supabaseConfig } from "./config"
-import type { AuthError } from "@supabase/supabase-js"
+import type { AuthError, PostgrestError } from "@supabase/supabase-js"
 
 export type AuthResponse = {
   success: boolean
   error: AuthError | null
   data?: any
+}
+
+// Helper function to convert PostgrestError to AuthError format
+const createAuthError = (error: PostgrestError | Error): AuthError => {
+  return {
+    name: error.name || 'AuthError',
+    message: error.message,
+    status: 400,
+    __isAuthError: true
+  }
 }
 
 export const supabaseAuth = {
@@ -26,7 +36,7 @@ export const supabaseAuth = {
         .eq('id', data.user.id)
         .single()
 
-      if (userError) throw userError
+      if (userError) throw createAuthError(userError)
 
       return {
         success: true,
@@ -51,7 +61,7 @@ export const supabaseAuth = {
 
       // Validate input
       if (!email || !password || !userData.first_name || !userData.last_name) {
-        throw new Error('Missing required fields')
+        throw createAuthError(new Error('Missing required fields'))
       }
 
       console.log('Creating auth user...')
@@ -79,7 +89,7 @@ export const supabaseAuth = {
         console.error('No user data returned from signup')
         return {
           success: false,
-          error: new Error('No user data returned from signup') as AuthError,
+          error: createAuthError(new Error('No user data returned from signup')),
         }
       }
 
@@ -112,7 +122,7 @@ export const supabaseAuth = {
         }
         return {
           success: false,
-          error: insertError as AuthError,
+          error: createAuthError(insertError),
         }
       }
 
@@ -130,7 +140,7 @@ export const supabaseAuth = {
       console.error('Signup process error:', error)
       return {
         success: false,
-        error: error as AuthError,
+        error: error instanceof Error ? createAuthError(error) : error as AuthError,
       }
     }
   },
@@ -148,7 +158,7 @@ export const supabaseAuth = {
     } catch (error) {
       return {
         success: false,
-        error: error as AuthError,
+        error: error instanceof Error ? createAuthError(error) : error as AuthError,
       }
     }
   },
