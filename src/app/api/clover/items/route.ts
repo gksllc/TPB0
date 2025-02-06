@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-interface CloverItem {
+interface Item {
   id: string
   name: string
   price?: number | null
@@ -15,7 +15,7 @@ interface CloverItem {
 }
 
 interface CloverResponse {
-  elements: CloverItem[]
+  elements: Item[]
 }
 
 export async function GET() {
@@ -75,8 +75,8 @@ export async function GET() {
 
     // Map all items to a consistent format
     const formattedItems = itemsData.elements
-      .filter((item: CloverItem) => item.price !== undefined && item.price !== null)
-      .map((item: CloverItem) => ({
+      .filter((item: Item) => item.price !== undefined && item.price !== null)
+      .map((item: Item) => ({
         id: item.id,
         name: item.name,
         price: item.price!,
