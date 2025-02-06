@@ -42,7 +42,7 @@ type RawAppointment = {
   pet_id: string // UUID from pets table
   pet_name: string // Pet name stored directly in appointments
   service_type: string
-  service_items: string[] // Array of service names
+  service_items: string[] | string // Can be array or JSON string
   status: string
   appointment_date: string
   appointment_time: string
@@ -51,10 +51,10 @@ type RawAppointment = {
   pets: {
     name: string
     image_url: string | null
-  } | null
+  }[] // Changed to array to match Supabase response
 }
 
-type Appointment = Omit<RawAppointment, 'pets'> & {
+type Appointment = Omit<RawAppointment, 'pets' | 'service_items'> & {
   c_order_id?: string
   employee_id: string // Clover employee ID
   employee_name: string // Employee name
@@ -191,7 +191,7 @@ export function ClientAppointmentsPage() {
         console.log('Raw appointments data:', data)
 
         // Transform the data to match our Appointment type
-        const transformedAppointments: Appointment[] = (data || []).map((rawData: RawAppointment) => {
+        const transformedAppointments: Appointment[] = (data || []).map((rawData: any) => {
           console.log('Processing appointment:', rawData)
           // Parse service_items if it's a string, or provide empty array as fallback
           const service_items = (() => {
@@ -217,7 +217,7 @@ export function ClientAppointmentsPage() {
             appointment_time: rawData.appointment_time,
             employee_id: rawData.employee_id,
             employee_name: rawData.employee_name,
-            pet_image_url: rawData.pets?.image_url || null
+            pet_image_url: rawData.pets?.[0]?.image_url || null // Access first pet's image if available
           }
         })
 
