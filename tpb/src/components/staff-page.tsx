@@ -7,7 +7,7 @@ import { LayoutDashboard, Users, Calendar, FileText, Settings, LogOut, SearchIco
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { NewStaffDialog } from "@/components/new-staff-dialog"
@@ -28,7 +28,10 @@ type Employee = {
 export function StaffPage() {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   const [openNewStaffDialog, setOpenNewStaffDialog] = useState(false)
   const [staffCount, setStaffCount] = useState(0)

@@ -1,0 +1,3 @@
+[33m10a3373[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m fix: remove invalid condition and improve dependency handling in admin-appointments-page
+[33mb0ef927[m fix: add FormattedItem interface and fix type errors in Clover items route
+[33m31c801b[m fix: simplify TypeScript types and fix implicit any error

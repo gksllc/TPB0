@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { SearchIcon, PlusIcon, Pencil } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { EditUserDialog } from "./edit-user-dialog"
@@ -29,7 +29,10 @@ export function AppCustomersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const [selectedUser, setSelectedUser] = useState<Customer | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [newUserDialogOpen, setNewUserDialogOpen] = useState(false)

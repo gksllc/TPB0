@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/lib/database.types"
 import { createUser } from "@/app/actions/create-user"
 import { formatPhoneNumber } from "@/lib/utils"
@@ -16,7 +16,10 @@ interface NewUserFormProps {
 }
 
 export const NewUserForm = ({ onClose, onUpdate }: NewUserFormProps) => {
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     first_name: '',

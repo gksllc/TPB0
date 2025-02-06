@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import debounce from 'lodash/debounce'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from "@/lib/database.types"
 import {
   AlertDialog,
@@ -109,7 +109,10 @@ export function AppointmentDetailsDialog({
   onOpenChange,
   onUpdate
 }: AppointmentDetailsDialogProps) {
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const [isEditing, setIsEditing] = useState(false)
   const [date, setDate] = useState("")
   const [time, setTime] = useState("")

@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { LayoutDashboard, Users, Calendar, FileText, Settings, LogOut } from 'lucide-react'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { useRouter } from 'next/navigation'
 import { toast } from "sonner"
+import { createBrowserClient } from "@supabase/ssr"
+import type { Database } from "@/lib/database.types"
 import Image from 'next/image'
 
 const navigation = [
@@ -20,7 +20,10 @@ const navigation = [
 export function DashboardNav() {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   const handleSignOut = async () => {
     try {
