@@ -10,40 +10,52 @@ export const metadata: Metadata = {
   description: "Sign in to your Pet Bodega account to manage your pet grooming appointments.",
 }
 
+// Force dynamic rendering and disable caching
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
+// Mark as server component
 export default async function Page() {
-  const supabase = createServerComponentClient<Database>({ cookies })
-  
-  const { data: { session } } = await supabase.auth.getSession()
+  try {
+    const cookieStore = cookies()
+    const supabase = createServerComponentClient<Database>({ cookies: () => cookieStore })
+    
+    const { data: { session } } = await supabase.auth.getSession()
 
-  // If user is already logged in, redirect them based on their role
-  if (session) {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+    // If user is already logged in, redirect them based on their role
+    if (session) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
 
-    if (userData) {
-      switch (userData.role) {
-        case 'admin':
-          redirect('/dashboard')
-        case 'client':
-          redirect('/client')
-        case 'employee':
-          redirect('/employee/dashboard')
-        default:
-          redirect('/client')
+      if (userData) {
+        switch (userData.role) {
+          case 'admin':
+            redirect('/dashboard')
+          case 'client':
+            redirect('/client')
+          case 'employee':
+            redirect('/employee/dashboard')
+          default:
+            redirect('/client')
+        }
       }
     }
-  }
 
-  // If not logged in, show the auth page
-  return (
-    <div className="min-h-screen">
-      <AuthPage />
-    </div>
-  )
+    // If not logged in, show the auth page
+    return (
+      <main className="min-h-screen">
+        <AuthPage />
+      </main>
+    )
+  } catch (error) {
+    console.error('Error in root page:', error)
+    return (
+      <main className="min-h-screen">
+        <AuthPage />
+      </main>
+    )
+  }
 }
