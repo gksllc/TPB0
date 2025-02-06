@@ -236,7 +236,7 @@ export function AppointmentDetailsDialog({
         // If it's the same day, filter out past times
         if (isSameDay(new Date(date), new Date())) {
           const now = new Date()
-          availableSlots = availableSlots.filter(timeSlot => {
+          availableSlots = availableSlots.filter((timeSlot: string) => {
             const [time, period] = timeSlot.split(' ')
             const [hours, minutes] = time.split(':').map(Number)
             let adjustedHours = hours
