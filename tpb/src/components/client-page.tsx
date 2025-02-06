@@ -13,6 +13,32 @@ import { useEffect, useState } from 'react'
 import { formatPhoneNumber } from "@/lib/utils"
 import Image from 'next/image'
 
+type Appointment = {
+  id: string
+  c_order_id?: string
+  user_id: string
+  pet_id: string
+  pet_name: string
+  service_type: string
+  service_items: string[]
+  status: string
+  appointment_date: string
+  appointment_time: string
+  employee_id: string
+  employee_name: string
+  pet_image_url: string | null
+}
+
+type Pet = {
+  id: string
+  name: string
+  breed: string
+  user_id: string
+  dob: string
+  weight?: string
+  image_url?: string | null
+}
+
 const calculateAge = (dob: string): number => {
   const birthDate = new Date(dob)
   const today = new Date()
