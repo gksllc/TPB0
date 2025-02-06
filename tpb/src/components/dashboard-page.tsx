@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { BarChart, Users, Calendar, DollarSign, PawPrint } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -29,7 +29,10 @@ interface Order {
 
 export function DashboardPage() {
   const router = useRouter()
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const [totalCustomers, setTotalCustomers] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [totalRevenue, setTotalRevenue] = useState<number>(0)

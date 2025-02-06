@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/lib/database.types"
 import { X } from 'lucide-react'
 import {
@@ -52,7 +52,10 @@ interface NewDog {
 }
 
 export const EditUserForm = ({ user, onClose, onUpdate }: EditUserFormProps) => {
-  const supabase = createClientComponentClient<Database>()
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
   const [pets, setPets] = useState<Pet[]>([])
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
