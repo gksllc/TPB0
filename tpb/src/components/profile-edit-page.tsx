@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import { 
   Save, 
@@ -61,10 +61,14 @@ interface NewContact {
   relationship: string
 }
 
+const supabase = createBrowserClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export function ProfileEditPage() {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClientComponentClient<Database>()
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/client" },

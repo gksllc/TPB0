@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/database.types'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import axios from 'axios'
 
@@ -11,6 +11,7 @@ const CLOVER_API_BASE = process.env.NEXT_PUBLIC_CLOVER_API_BASE!
 const CLOVER_API_TOKEN = process.env.CLOVER_API_TOKEN!
 const MERCHANT_ID = process.env.CLOVER_MERCHANT_ID!
 
+// Create a Supabase client for service-role operations
 const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
 // Create a Clover client instance specifically for the API route
@@ -21,6 +22,28 @@ const cloverClient = axios.create({
     'Content-Type': 'application/json'
   }
 })
+
+// Helper function to get authenticated supabase client
+async function getAuthenticatedClient() {
+  const cookieStore = cookies()
+  return createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          cookieStore.set({ name, value, ...options })
+        },
+        remove(name: string, options: any) {
+          cookieStore.set({ name, value: '', ...options })
+        },
+      },
+    }
+  )
+}
 
 // Helper function to handle Clover operations
 async function handleCloverOperations(oldOrderId: string, appointmentDetails: any) {
@@ -112,13 +135,17 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies })
-    const { id } = params
+    const supabaseAuth = await getAuthenticatedClient()
+    const { data: { session }, error: authError } = await supabaseAuth.auth.getSession()
+    
+    if (authError || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { data, error } = await supabase
       .from('appointments')
       .select('*')
-      .eq('id', id)
+      .eq('id', params.id)
       .single()
 
     if (error) {
@@ -138,11 +165,11 @@ export async function GET(
       data
     })
   } catch (error: any) {
-    console.error('API error:', error)
-    return NextResponse.json({
-      success: false,
-      error: error.message || 'Failed to fetch appointment'
-    }, { status: 500 })
+    console.error('Error in GET /api/appointments/[id]:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -151,14 +178,11 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieClient = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await cookieClient.auth.getSession()
-
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+    const supabaseAuth = await getAuthenticatedClient()
+    const { data: { session }, error: authError } = await supabaseAuth.auth.getSession()
+    
+    if (authError || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const updateData = await request.json()
@@ -297,7 +321,7 @@ export async function PATCH(
   } catch (error: any) {
     console.error('Error in PATCH /api/appointments/[id]:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
@@ -308,14 +332,11 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieClient = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await cookieClient.auth.getSession()
-
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+    const supabaseAuth = await getAuthenticatedClient()
+    const { data: { session }, error: authError } = await supabaseAuth.auth.getSession()
+    
+    if (authError || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Get the appointment first to check if there's a Clover order
@@ -356,7 +377,7 @@ export async function DELETE(
   } catch (error: any) {
     console.error('Error in DELETE /api/appointments/[id]:', error)
     return NextResponse.json(
-      { error: error?.message || 'Internal Server Error' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
