@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description: "Sign in to your Pet Bodega account to manage your pet grooming appointments.",
 }
 
+export const dynamic = 'force-dynamic'
+
 export default async function Page() {
   const supabase = createServerComponentClient<Database>({ cookies })
   
