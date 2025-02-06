@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import * as React from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { format, isSameDay, isAfter, parse } from 'date-fns'
 import { Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -50,6 +51,51 @@ interface Pet {
   breed?: string | null
   user_id: string
   size?: string | null
+  dob?: string | null
+  gender?: string | null
+  age?: number | null
+  weight?: string | null
+}
+
+interface Service {
+  id: string
+  name: string
+  price: number
+  description?: string
+}
+
+interface Employee {
+  id: string
+  name: string
+  customId?: string
+}
+
+interface TimeSlot {
+  time: string
+  period: string
+}
+
+interface AppointmentData {
+  customer: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+    phone: string
+  }
+  employee: {
+    id: string
+    name: string
+  }
+  employee_name: string
+  petId: string
+  petName: string
+  services: string[]
+  service_items: string[]
+  date: string
+  time: string
+  total: number
+  duration: number
 }
 
 // Add helper function to determine size category
@@ -104,17 +150,17 @@ export function NewAppointmentDialog({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // State declarations
-  const [date, setDate] = useState<Date>()
-  const [time, setTime] = useState<string>()
+  // State declarations with proper typing
+  const [date, setDate] = useState<Date | undefined>()
+  const [time, setTime] = useState<string | undefined>()
   const [petName, setPetName] = useState('')
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null)
   const [customerPets, setCustomerPets] = useState<Pet[]>([])
   const [services, setServices] = useState<string[]>([])
-  const [employee, setEmployee] = useState<{id: string, name: string} | null>(null)
+  const [employee, setEmployee] = useState<Employee | null>(null)
   const [availableTimes, setAvailableTimes] = useState<string[]>([])
-  const [employees, setEmployees] = useState<Array<{id: string, name: string}>>([])
-  const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [availableServices, setAvailableServices] = useState<Service[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
   const [isLoadingServices, setIsLoadingServices] = useState(false)
@@ -126,7 +172,81 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Memoized functions
+  // Memoized functions with proper error typing
+  const fetchCustomers = useCallback(async () => {
+    if (isLoadingCustomers) return
+    
+    setIsLoadingCustomers(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email, phone')
+        .eq('role', 'client')
+        .order('first_name', { ascending: true })
+      
+      if (error) throw error
+      setAllCustomers(data || [])
+    } catch (error: unknown) {
+      console.error('Error fetching customers:', error)
+      toast.error('Failed to fetch customers')
+    } finally {
+      setIsLoadingCustomers(false)
+    }
+  }, [supabase, isLoadingCustomers])
+
+  const fetchEmployees = useCallback(async () => {
+    if (isLoadingEmployees) return
+    
+    setIsLoadingEmployees(true)
+    try {
+      const response = await fetch('/api/clover/employees')
+      if (!response.ok) throw new Error('Failed to fetch employees')
+      const data = await response.json()
+      
+      const groomers = data.data
+        .filter((emp: Employee) => emp.customId === 'GROOMER')
+        .map((emp: Employee) => ({
+          id: emp.id,
+          name: emp.name,
+          customId: emp.customId
+        }))
+      setEmployees(groomers)
+    } catch (error: unknown) {
+      console.error('Error fetching employees:', error)
+      toast.error('Failed to fetch employees')
+    } finally {
+      setIsLoadingEmployees(false)
+    }
+  }, [isLoadingEmployees])
+
+  const fetchServices = useCallback(async () => {
+    if (isLoadingServices) return
+    
+    setIsLoadingServices(true)
+    try {
+      const response = await fetch('/api/clover/items')
+      if (!response.ok) throw new Error('Failed to fetch services')
+      const data = await response.json()
+      
+      if (!data.success || !data.data) {
+        throw new Error('Invalid services response')
+      }
+      
+      const formattedServices: Service[] = data.data.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        price: service.price || 0,
+        description: service.description || ''
+      }))
+      setAvailableServices(formattedServices)
+    } catch (error: unknown) {
+      console.error('Error fetching services:', error)
+      toast.error('Failed to fetch services')
+    } finally {
+      setIsLoadingServices(false)
+    }
+  }, [isLoadingServices])
+
   const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
     const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
     return selectedServices.reduce((total, service) => {
@@ -135,87 +255,8 @@ export function NewAppointmentDialog({
     }, 0)
   }, [availableServices])
 
-  // Initialize data loading
+  // Effects
   useEffect(() => {
-    const fetchCustomers = async () => {
-      if (isLoadingCustomers || allCustomers.length > 0) return
-      
-      setIsLoadingCustomers(true)
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select(`
-            id,
-            first_name,
-            last_name,
-            email,
-            phone
-          `)
-          .eq('role', 'client')
-          .order('first_name', { ascending: true })
-        
-        if (error) throw error
-        setAllCustomers(data || [])
-      } catch (error) {
-        console.error('Error fetching customers:', error)
-        toast.error('Failed to fetch customers')
-      } finally {
-        setIsLoadingCustomers(false)
-      }
-    }
-
-    const fetchEmployees = async () => {
-      if (isLoadingEmployees || employees.length > 0) return
-      
-      setIsLoadingEmployees(true)
-      try {
-        const response = await fetch('/api/clover/employees')
-        if (!response.ok) throw new Error('Failed to fetch employees')
-        const data = await response.json()
-        
-        const groomers = data.data
-          .filter((emp: any) => emp.customId === 'GROOMER')
-          .map((emp: any) => ({
-            id: emp.id,
-            name: emp.name
-          }))
-        setEmployees(groomers)
-      } catch (error) {
-        console.error('Error fetching employees:', error)
-        toast.error('Failed to fetch employees')
-      } finally {
-        setIsLoadingEmployees(false)
-      }
-    }
-
-    const fetchServices = async () => {
-      if (isLoadingServices || availableServices.length > 0) return
-      
-      setIsLoadingServices(true)
-      try {
-        const response = await fetch('/api/clover/items')
-        if (!response.ok) throw new Error('Failed to fetch services')
-        const data = await response.json()
-        
-        if (!data.success || !data.data) {
-          throw new Error('Invalid services response')
-        }
-        
-        const formattedServices = data.data.map((service: any) => ({
-          id: service.id,
-          name: service.name,
-          price: service.price || 0,
-          description: service.description || ''
-        }))
-        setAvailableServices(formattedServices)
-      } catch (error) {
-        console.error('Error fetching services:', error)
-        toast.error('Failed to fetch services')
-      } finally {
-        setIsLoadingServices(false)
-      }
-    }
-
     if (open) {
       void fetchCustomers()
       void fetchEmployees()
@@ -224,7 +265,7 @@ export function NewAppointmentDialog({
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open, isLoadingCustomers, allCustomers.length, isLoadingEmployees, employees.length, isLoadingServices, availableServices.length, supabase])
+  }, [open, fetchCustomers, fetchEmployees, fetchServices])
 
   // Effect for fetching customer's pets
   useEffect(() => {
@@ -243,8 +284,6 @@ export function NewAppointmentDialog({
           .order('name', { ascending: true })
 
         if (error) throw error
-
-        console.log('Fetched pets:', pets)
         setCustomerPets(pets || [])
 
         // Auto-select if there's only one pet
@@ -261,7 +300,7 @@ export function NewAppointmentDialog({
       }
     }
 
-    fetchCustomerPets()
+    void fetchCustomerPets()
   }, [selectedCustomer, supabase])
 
   // Effect for resetting form
@@ -299,7 +338,6 @@ export function NewAppointmentDialog({
         )
         
         if (!response.ok) {
-          const errorText = await response.text()
           throw new Error('Failed to fetch availability')
         }
         
@@ -313,7 +351,7 @@ export function NewAppointmentDialog({
 
         if (isSameDay(date, new Date())) {
           const now = new Date()
-          availableSlots = availableSlots.filter(timeSlot => {
+          availableSlots = availableSlots.filter((timeSlot: string) => {
             const [time, period] = timeSlot.split(' ')
             const [hours, minutes] = time.split(':').map(Number)
             let adjustedHours = hours
@@ -342,7 +380,7 @@ export function NewAppointmentDialog({
       }
     }
 
-    fetchAvailableTimes()
+    void fetchAvailableTimes()
   }, [date, employee, services, calculateTotalDuration])
 
   const handleSubmit = async () => {
@@ -378,7 +416,7 @@ export function NewAppointmentDialog({
       const day = String(date.getDate()).padStart(2, '0')
       const timeString = `${String(adjustedHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
       
-      const appointmentData = {
+      const appointmentData: AppointmentData = {
         customer: {
           id: selectedCustomer.id,
           firstName: selectedCustomer.first_name || '',
@@ -426,9 +464,13 @@ export function NewAppointmentDialog({
       setEmployee(null)
       setSelectedCustomer(null)
       setSelectedPet(null)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating appointment:', error)
-      toast.error(error.message || 'Failed to create appointment')
+      if (error instanceof Error) {
+        toast.error(error.message)
+      } else {
+        toast.error('Failed to create appointment')
+      }
     } finally {
       setIsLoading(false)
     }
