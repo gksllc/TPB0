@@ -150,7 +150,7 @@ export function NewAppointmentDialog({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // State declarations with proper typing
+  // State declarations
   const [date, setDate] = useState<Date | undefined>()
   const [time, setTime] = useState<string | undefined>()
   const [petName, setPetName] = useState('')
@@ -172,7 +172,7 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Memoized functions with proper error typing
+  // Fetch functions with useCallback
   const fetchCustomers = useCallback(async () => {
     if (isLoadingCustomers) return
     
