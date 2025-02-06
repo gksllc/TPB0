@@ -17,10 +17,10 @@ export async function GET() {
       }, { status: 500 })
     }
 
-    // Fetch all items with their categories, prices, and tax rates
-    const url = `${CLOVER_API_BASE_URL}/v3/merchants/${merchantId}/items?expand=categories,price,tax&limit=1000&filter=hidden=false&orderBy=name ASC`
-    console.log('Fetching all items with URL:', url)
-
+    // Fetch all employees with roles and payments permissions
+    const url = `${CLOVER_API_BASE_URL}/merchants/${merchantId}/employees?expand=roles,payments`
+    console.log('Fetching employees from:', url)
+    
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
@@ -39,39 +39,39 @@ export async function GET() {
       })
       return NextResponse.json({
         success: false,
-        error: `Failed to fetch items: ${response.statusText}`
+        error: `Failed to fetch employees: ${response.statusText}`
       }, { status: response.status })
     }
 
     const data = await response.json()
 
-    // Transform and filter item data
-    const items = (data.elements || [])
-      .filter((item: any) => item.name && item.id)
-      .map((item: any) => ({
-        id: item.id,
-        name: item.name,
-        price: item.price || 0,
-        categories: item.categories?.elements?.map((cat: any) => ({
-          id: cat.id,
-          name: cat.name
-        })) || [],
-        tax: item.tax ? {
-          id: item.tax.id,
-          name: item.tax.name,
-          rate: item.tax.rate
-        } : null
+    // Transform and filter employee data
+    const employees = (data.elements || [])
+      .filter((employee: any) => employee.name && employee.id)
+      .map((employee: any) => ({
+        id: employee.id,
+        name: employee.name,
+        email: employee.email || null,
+        role: employee.roles?.elements?.[0]?.name || 'Staff',
+        nickname: employee.nickname || null,
+        customId: employee.customId || null,
+        isOwner: employee.roles?.elements?.some((role: any) => 
+          role.name?.toLowerCase() === 'owner' || 
+          role.name?.toLowerCase() === 'admin'
+        ) || false,
+        pin: employee.pin || null,
+        roles: employee.roles?.elements?.map((role: any) => role.name) || []
       }))
 
     return NextResponse.json({
       success: true,
-      data: items
+      data: employees
     })
   } catch (error: any) {
-    console.error('Error fetching Clover items:', error)
+    console.error('Error fetching Clover employees:', error)
     return NextResponse.json({
       success: false,
-      error: error.message || 'Failed to fetch items'
+      error: error.message || 'Failed to fetch employees'
     }, { status: 500 })
   }
 } 
