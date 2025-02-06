@@ -90,7 +90,8 @@ export function ClientPage() {
             employee_id,
             employee_name,
             pets (
-              name
+              name,
+              image_url
             )
           `)
           .eq('user_id', currentUser.id)
@@ -122,7 +123,8 @@ export function ClientPage() {
             appointment_date: rawData.appointment_date,
             appointment_time: rawData.appointment_time,
             employee_id: rawData.employee_id,
-            employee_name: rawData.employee_name
+            employee_name: rawData.employee_name,
+            pet_image_url: rawData.pets?.image_url
           }
         })
 
@@ -264,8 +266,19 @@ export function ClientPage() {
                       className="flex items-center justify-between p-4 rounded-lg border"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <Clock className="h-6 w-6 text-primary" />
+                        <div className="h-12 w-12 relative rounded-full overflow-hidden bg-primary/10">
+                          {appointment.pet_image_url ? (
+                            <Image
+                              src={appointment.pet_image_url}
+                              alt={appointment.pet_name}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              <Clock className="h-6 w-6 text-primary" />
+                            </div>
+                          )}
                         </div>
                         <div>
                           <h3 className="font-medium">

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
-import { Calendar, Search, Plus, Edit2, Trash2 } from 'lucide-react'
+import { format, addDays } from 'date-fns'
+import { Calendar, Search, Plus, Edit2, Trash2, PawPrint } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -35,6 +35,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import Image from 'next/image'
+import { AppointmentDetailsDialog } from './appointment-details-dialog'
 
 type Appointment = {
   id: string
@@ -47,8 +49,10 @@ type Appointment = {
   status: string
   appointment_date: string
   appointment_time: string
+  appointment_duration: number
   employee_id: string
   employee_name: string
+  pet_image_url: string | null
 }
 
 type Order = {
@@ -83,6 +87,8 @@ export function AdminAppointmentsPage() {
   const [openNewAppointmentDialog, setOpenNewAppointmentDialog] = useState(false)
   const [activeTab, setActiveTab] = useState('appointments')
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null)
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   // Fetch appointments from Supabase
   const fetchAppointments = async () => {
@@ -239,9 +245,15 @@ export function AdminAppointmentsPage() {
   const filteredAppointments = appointments.filter(appointment => {
     const matchesSearch = 
       appointment.pet_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      appointment.service_items.some(item => 
-        item.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      (Array.isArray(appointment.service_items)
+        ? appointment.service_items.some(item => 
+            item.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        : typeof appointment.service_items === 'string'
+          ? JSON.parse(appointment.service_items).some((item: string) =>
+              item.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+          : false)
     
     const matchesStatus = 
       statusFilter === 'all' || 
@@ -300,6 +312,7 @@ export function AdminAppointmentsPage() {
                     <TableHead>Date & Time</TableHead>
                     <TableHead>Pet Name</TableHead>
                     <TableHead>Services</TableHead>
+                    <TableHead>Duration</TableHead>
                     <TableHead>Groomer</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -309,17 +322,46 @@ export function AdminAppointmentsPage() {
                   {filteredAppointments.map((appointment) => (
                     <TableRow key={appointment.id}>
                       <TableCell>
-                        {format(new Date(appointment.appointment_date), 'MMM d, yyyy')}
-                        <br />
-                        <span className="text-gray-500">{appointment.appointment_time}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {format(addDays(new Date(appointment.appointment_date), 1), 'MMM d, yyyy')}
+                        </span>
+                        <div className="text-base font-medium mt-1">
+                          {format(new Date(`2000-01-01T${appointment.appointment_time}`), 'h:mm a')}
+                        </div>
                       </TableCell>
-                      <TableCell>{appointment.pet_name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="h-12 w-12 relative rounded-full overflow-hidden bg-primary/10 shrink-0">
+                            {appointment.pet_image_url ? (
+                              <Image
+                                src={appointment.pet_image_url}
+                                alt={appointment.pet_name}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 48px, 96px"
+                                quality={90}
+                                loading="eager"
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center">
+                                <PawPrint className="h-6 w-6 text-primary/60" />
+                              </div>
+                            )}
+                          </div>
+                          <span className="font-medium">{appointment.pet_name}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         {typeof appointment.service_items === 'string' 
                           ? JSON.parse(appointment.service_items).join(', ')
                           : Array.isArray(appointment.service_items)
                             ? appointment.service_items.join(', ')
                             : appointment.service_items}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {Math.floor(appointment.appointment_duration / 60)}h {appointment.appointment_duration % 60}m
+                        </div>
                       </TableCell>
                       <TableCell>{appointment.employee_name}</TableCell>
                       <TableCell>
@@ -339,6 +381,16 @@ export function AdminAppointmentsPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedAppointment(appointment)
+                              setIsDetailsOpen(true)
+                            }}
+                          >
+                            View Details
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -427,6 +479,13 @@ export function AdminAppointmentsPage() {
         open={openNewAppointmentDialog}
         onOpenChange={setOpenNewAppointmentDialog}
         onSuccess={fetchAppointments}
+      />
+
+      <AppointmentDetailsDialog
+        appointment={selectedAppointment}
+        open={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+        onUpdate={fetchAppointments}
       />
     </div>
   )

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { format } from 'date-fns'
+import { format, isSameDay, isAfter, parse } from 'date-fns'
 import { Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -49,6 +49,49 @@ interface Pet {
   name: string
   breed?: string | null
   user_id: string
+  size?: string | null
+}
+
+// Add helper function to determine size category
+const getSizeCategory = (size: string | null | undefined): 'standard' | 'large' | 'x-large' => {
+  if (!size) return 'standard'
+  
+  const normalizedSize = size.toLowerCase()
+  if (['x-large', 'xlarge', 'extra large', 'extra-large'].includes(normalizedSize)) {
+    return 'x-large'
+  }
+  if (['large', 'l'].includes(normalizedSize)) {
+    return 'large'
+  }
+  // x-small, small, medium are all considered standard
+  return 'standard'
+}
+
+// Add helper function to check if service matches pet size
+const isServiceMatchingPetSize = (serviceName: string, petSize: string | null | undefined): boolean => {
+  const sizeCategory = getSizeCategory(petSize)
+  const normalizedName = serviceName.toLowerCase()
+
+  // If service name doesn't contain size indicators, it's available for all sizes
+  if (!normalizedName.includes('standard') && 
+      !normalizedName.includes('large') && 
+      !normalizedName.includes('x-large') &&
+      !normalizedName.includes('xlarge')) {
+    return true
+  }
+
+  switch (sizeCategory) {
+    case 'x-large':
+      return normalizedName.includes('x-large') || normalizedName.includes('xlarge')
+    case 'large':
+      return normalizedName.includes('large') && 
+             !normalizedName.includes('x-large') && 
+             !normalizedName.includes('xlarge')
+    case 'standard':
+      return normalizedName.includes('standard')
+    default:
+      return true
+  }
 }
 
 export function NewAppointmentDialog({
@@ -74,6 +117,8 @@ export function NewAppointmentDialog({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false)
   const [customerSearchQuery, setCustomerSearchQuery] = useState("")
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("")
+  const [isLoadingTimes, setIsLoadingTimes] = useState(false)
   const supabase = createClientComponentClient<Database>()
 
   // Fetch employees, services, and customers when dialog opens
@@ -82,6 +127,10 @@ export function NewAppointmentDialog({
       fetchEmployees()
       fetchServices()
       fetchCustomers()
+    } else {
+      // Reset search queries when dialog closes
+      setCustomerSearchQuery("")
+      setServiceSearchQuery("")
     }
   }, [open])
 
@@ -156,10 +205,31 @@ export function NewAppointmentDialog({
     
     setIsLoadingServices(true)
     try {
+      console.log('Fetching services from Clover...')
       const response = await fetch('/api/clover/items')
-      if (!response.ok) throw new Error('Failed to fetch services')
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Failed to fetch services:', errorData)
+        throw new Error(errorData.error || 'Failed to fetch services')
+      }
       const data = await response.json()
-      setAvailableServices(data.data)
+      
+      if (!data.success || !data.data) {
+        console.error('Invalid services response:', data)
+        throw new Error('Invalid services response')
+      }
+
+      console.log('Fetched services:', data.data)
+      
+      // Map the services to the correct format
+      const formattedServices = data.data.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        price: service.price || 0,
+        description: service.description || ''
+      }))
+
+      setAvailableServices(formattedServices)
     } catch (error) {
       console.error('Error fetching services:', error)
       toast.error('Failed to fetch services')
@@ -221,55 +291,117 @@ export function NewAppointmentDialog({
     }
   }, [open])
 
-  // Fetch available times when date and employee are selected
+  // Calculate total duration of selected services
+  const calculateTotalDuration = (selectedServiceIds: string[]): number => {
+    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
+    // Get duration from service name or use default 30 minutes
+    return selectedServices.reduce((total, service) => {
+      // Try to extract duration from service name (e.g., "Service Name - 45 min")
+      const durationMatch = service.name.match(/(\d+)\s*min/i)
+      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
+    }, 0)
+  }
+
+  // Fetch available times when date, employee, and services are selected
   useEffect(() => {
     const fetchAvailableTimes = async () => {
-      if (!date || !employee) return
-
+      // Reset times when dependencies change
       setAvailableTimes([])
+      setTime(undefined)
+
+      if (!date || !employee || !services.length) {
+        console.log('Missing required fields for fetching times:', {
+          hasDate: !!date,
+          hasEmployee: !!employee,
+          servicesCount: services.length
+        })
+        return
+      }
+
+      setIsLoadingTimes(true)
       try {
-        // First, get all possible time slots from Clover API
+        // Calculate total duration of selected services
+        const totalDuration = calculateTotalDuration(services)
+        const formattedDate = format(date, 'yyyy-MM-dd')
+
+        console.log('Fetching available times with params:', {
+          date: formattedDate,
+          employeeId: employee.id,
+          duration: totalDuration,
+          selectedServices: services
+        })
+
+        // Get all possible time slots from the availability endpoint
         const response = await fetch(
-          `/api/clover/availability?date=${format(date, 'yyyy-MM-dd')}&groomerId=${employee.id}`
+          `/api/clover/availability?date=${formattedDate}&groomerId=${employee.id}&duration=${totalDuration}`
         )
-        if (!response.ok) throw new Error('Failed to fetch availability')
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('Failed to fetch availability:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          })
+          throw new Error('Failed to fetch availability')
+        }
+        
         const data = await response.json()
-
-        // Get all booked appointments for the selected groomer and date
-        const { data: bookedAppointments, error: appointmentsError } = await supabase
-          .from('appointments')
-          .select('appointment_time')
-          .eq('appointment_date', format(date, 'yyyy-MM-dd'))
-          .eq('employee_id', employee.id)
-
-        if (appointmentsError) {
-          console.error('Error fetching booked appointments:', appointmentsError)
-          throw new Error('Failed to check booked appointments')
+        
+        if (!data.success) {
+          console.error('API returned error:', data.error)
+          throw new Error(data.error || 'Failed to fetch availability')
         }
 
-        // Normalize booked times to HH:mm format
-        const bookedTimes = new Set(
-          bookedAppointments?.map(app => {
-            const timeStr = app.appointment_time
-            return timeStr.substring(0, 5)
-          }) || []
-        )
+        console.log('API Response:', data)
 
-        // Filter out already booked times
-        const availableTimeSlots = data.data.availableTimeSlots.filter(
-          (time: string) => !bookedTimes.has(time)
-        )
+        let availableSlots = data.data.availableTimeSlots || []
 
-        setAvailableTimes(availableTimeSlots)
+        // If it's the same day, filter out past times
+        if (isSameDay(date, new Date())) {
+          const now = new Date()
+          availableSlots = availableSlots.filter(timeSlot => {
+            // Parse the time slot and create a comparable date object
+            const [time, period] = timeSlot.split(' ')
+            const [hours, minutes] = time.split(':').map(Number)
+            let adjustedHours = hours
+            
+            // Convert to 24-hour format
+            if (period === 'PM' && hours !== 12) {
+              adjustedHours += 12
+            } else if (period === 'AM' && hours === 12) {
+              adjustedHours = 0
+            }
+
+            // Create a date object for comparison
+            const slotDate = new Date(date)
+            slotDate.setHours(adjustedHours, minutes, 0, 0)
+
+            // Add a buffer (e.g., 30 minutes) to the current time
+            const bufferTime = new Date(now.getTime() + 30 * 60000)
+
+            return isAfter(slotDate, bufferTime)
+          })
+        }
+
+        if (availableSlots.length === 0) {
+          console.log('No available time slots after filtering')
+        } else {
+          console.log('Available time slots after filtering:', availableSlots)
+        }
+
+        setAvailableTimes(availableSlots)
       } catch (error) {
         console.error('Error fetching availability:', error)
         toast.error('Failed to fetch available times')
         setAvailableTimes([])
+      } finally {
+        setIsLoadingTimes(false)
       }
     }
 
     fetchAvailableTimes()
-  }, [date, employee, supabase])
+  }, [date, employee, services])
 
   const handleSubmit = async () => {
     if (!date || !time || !selectedPet || !services.length || !employee || !selectedCustomer) {
@@ -297,9 +429,27 @@ export function NewAppointmentDialog({
           price: service.price || 0
         }))
 
-      // Calculate total price
+      // Calculate total price and duration
       const total = selectedServiceDetails.reduce((sum, service) => sum + service.price, 0)
+      const totalDuration = calculateTotalDuration(services)
 
+      // Parse the selected date and time
+      const [hours, minutes] = time.split(' ')[0].split(':').map(Number)
+      const period = time.split(' ')[1]
+      let adjustedHours = hours
+      if (period === 'PM' && hours !== 12) {
+        adjustedHours += 12
+      } else if (period === 'AM' && hours === 12) {
+        adjustedHours = 0
+      }
+
+      // Create a date string in ISO format with the local timezone
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const timeString = `${String(adjustedHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+      
+      // Create the appointment data
       const appointmentData = {
         customer: {
           id: selectedCustomer.id,
@@ -317,10 +467,13 @@ export function NewAppointmentDialog({
         petName: selectedPet.name,
         services: services,
         service_items: selectedServiceDetails.map(service => service.name),
-        date: format(date, 'yyyy-MM-dd'),
-        time: time,
-        total
+        date: `${year}-${month}-${day}`,
+        time: timeString,
+        total,
+        duration: totalDuration
       }
+
+      console.log('Submitting appointment data:', appointmentData)
 
       const response = await fetch('/api/appointments', {
         method: 'POST',
@@ -365,6 +518,23 @@ export function NewAppointmentDialog({
     const email = customer.email.toLowerCase()
     
     return fullName.includes(searchTerms) || email.includes(searchTerms)
+  })
+
+  // Filter services based on search query and pet size
+  const filteredServices = availableServices.filter((service) => {
+    // First check if service matches the pet size
+    if (selectedPet && !isServiceMatchingPetSize(service.name, selectedPet.size)) {
+      return false
+    }
+
+    // Then apply search filter if there's a search query
+    if (serviceSearchQuery === "") return true
+    
+    const searchTerms = serviceSearchQuery.toLowerCase()
+    const serviceName = service.name.toLowerCase()
+    const serviceDescription = (service.description || '').toLowerCase()
+    
+    return serviceName.includes(searchTerms) || serviceDescription.includes(searchTerms)
   })
 
   return (
@@ -477,13 +647,92 @@ export function NewAppointmentDialog({
           </div>
 
           <div className="grid gap-2">
-            <label htmlFor="pet-name">Pet Name</label>
-            <Input
-              id="pet-name"
-              placeholder="Enter pet name"
-              value={petName}
-              onChange={(e) => setPetName(e.target.value)}
-            />
+            <label>Services</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="justify-between w-full"
+                >
+                  {services.length > 0
+                    ? `${services.length} service${services.length > 1 ? 's' : ''} selected`
+                    : "Select services..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-2">
+                <div className="flex items-center border-b px-3 pb-2">
+                  <Input
+                    placeholder="Search services..."
+                    value={serviceSearchQuery}
+                    onChange={(e) => setServiceSearchQuery(e.target.value)}
+                    className="border-0 focus:ring-0"
+                  />
+                </div>
+                <div className="max-h-[300px] overflow-y-auto pt-2">
+                  {isLoadingServices ? (
+                    <div className="text-sm text-muted-foreground p-2">
+                      Loading services...
+                    </div>
+                  ) : !selectedPet ? (
+                    <div className="text-sm text-muted-foreground p-2">
+                      Please select a pet first to see available services
+                    </div>
+                  ) : filteredServices.length === 0 ? (
+                    <div className="text-sm text-muted-foreground p-2">
+                      {serviceSearchQuery ? "No matching services found" : "No services available"}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="px-2 py-1 text-xs text-muted-foreground">
+                        Showing services for {selectedPet.name} ({getSizeCategory(selectedPet.size)} size)
+                      </div>
+                      {filteredServices.map((service) => (
+                        <div
+                          key={service.id}
+                          className="flex items-center space-x-2 p-2 hover:bg-accent rounded-sm cursor-pointer"
+                          onClick={() => {
+                            setServices((prev) => {
+                              const isSelected = prev.includes(service.id)
+                              if (isSelected) {
+                                return prev.filter((id) => id !== service.id)
+                              } else {
+                                return [...prev, service.id]
+                              }
+                            })
+                          }}
+                        >
+                          <div className={cn(
+                            "h-4 w-4 border rounded-sm flex items-center justify-center",
+                            services.includes(service.id) && "bg-primary border-primary"
+                          )}>
+                            {services.includes(service.id) && (
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-sm font-medium">
+                              {service.name}
+                            </div>
+                            {service.price > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                ${(service.price / 100).toFixed(2)}
+                              </div>
+                            )}
+                            {service.description && (
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {service.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           
           <div className="grid gap-2">
@@ -532,75 +781,45 @@ export function NewAppointmentDialog({
               <label>Time</label>
               <Select value={time} onValueChange={setTime}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select time" />
+                  <SelectValue placeholder={
+                    !services.length 
+                      ? "Select services first"
+                      : isLoadingTimes
+                        ? "Loading available times..."
+                        : "Select time"
+                  } />
                 </SelectTrigger>
-                <SelectContent>
-                  {availableTimes.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-[200px] overflow-y-auto">
+                  {!services.length ? (
+                    <div className="text-sm text-muted-foreground p-2">
+                      Please select services first
+                    </div>
+                  ) : isLoadingTimes ? (
+                    <div className="text-sm text-muted-foreground p-2">
+                      Loading available times...
+                    </div>
+                  ) : availableTimes.length === 0 ? (
+                    <div className="text-sm text-muted-foreground p-2">
+                      No available times for selected date
+                    </div>
+                  ) : (
+                    availableTimes
+                      .sort((a, b) => {
+                        // Convert times to comparable format for sorting
+                        const timeA = new Date(`2000/01/01 ${a}`).getTime()
+                        const timeB = new Date(`2000/01/01 ${b}`).getTime()
+                        return timeA - timeB
+                      })
+                      .map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
           )}
-
-          <div className="grid gap-2">
-            <label>Services</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="justify-between w-full"
-                >
-                  {services.length > 0
-                    ? `${services.length} service${services.length > 1 ? 's' : ''} selected`
-                    : "Select services..."}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-2">
-                <div className="space-y-2">
-                  {availableServices.map((service) => (
-                    <div
-                      key={service.id}
-                      className="flex items-center space-x-2 p-2 hover:bg-accent rounded-sm cursor-pointer"
-                      onClick={() => {
-                        setServices((prev) => {
-                          const isSelected = prev.includes(service.id)
-                          if (isSelected) {
-                            return prev.filter((id) => id !== service.id)
-                          } else {
-                            return [...prev, service.id]
-                          }
-                        })
-                      }}
-                    >
-                      <div className={cn(
-                        "h-4 w-4 border rounded-sm flex items-center justify-center",
-                        services.includes(service.id) && "bg-primary border-primary"
-                      )}>
-                        {services.includes(service.id) && (
-                          <Check className="h-3 w-3 text-primary-foreground" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">
-                          {service.name}
-                        </div>
-                        {service.price && (
-                          <div className="text-xs text-muted-foreground">
-                            ${(service.price / 100).toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
         </div>
         <DialogFooter>
           <Button

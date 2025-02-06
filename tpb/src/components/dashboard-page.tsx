@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart, Users, Calendar, DollarSign } from 'lucide-react'
+import { BarChart, Users, Calendar, DollarSign, PawPrint } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { format, subMonths, startOfMonth, endOfMonth, add } from 'date-fns'
+import { format, subMonths, startOfMonth, endOfMonth, add, addDays } from 'date-fns'
+import Image from 'next/image'
+import { AppointmentDetailsDialog } from './appointment-details-dialog'
 
 interface Order {
   id: string
@@ -41,8 +43,14 @@ export function DashboardPage() {
     appointment_time: string
     pet_name: string
     service_items: string[]
+    status: string
+    employee_name: string
+    pet_image_url: string | null
+    appointment_duration: number
   }>>([])
   const [upcomingLoading, setUpcomingLoading] = useState(true)
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const monthOptions = Array.from({ length: 3 }).map((_, index) => {
     const date = subMonths(new Date(), index)
@@ -117,58 +125,30 @@ export function DashboardPage() {
   const fetchUpcomingAppointments = useCallback(async () => {
     setUpcomingLoading(true)
     try {
-      const today = format(new Date(), 'yyyy-MM-dd')
-      const nextWeek = format(add(new Date(), { days: 7 }), 'yyyy-MM-dd')
-
-      console.log('Fetching appointments with dates:', { today, nextWeek })
-
-      const { data, error } = await supabase
-        .from('appointments')
-        .select(`
-          id,
-          appointment_date,
-          appointment_time,
-          pet_name,
-          service_items,
-          status
-        `)
-        .gte('appointment_date', today)
-        .lte('appointment_date', nextWeek)
-        .neq('status', 'Cancelled')
-        .order('appointment_date', { ascending: true })
-        .order('appointment_time', { ascending: true })
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
+      const response = await fetch('/api/appointments')
+      if (!response.ok) {
+        throw new Error('Failed to fetch appointments')
       }
+      const data = await response.json()
+      
+      // Filter for upcoming appointments and sort by date and time
+      const upcoming = data.data
+        .filter((apt: any) => apt.status.toLowerCase() !== 'cancelled')
+        .sort((a: any, b: any) => {
+          const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`)
+          const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`)
+          return dateA.getTime() - dateB.getTime()
+        })
+        .slice(0, 5) // Show only next 5 appointments
 
-      console.log('Raw appointments data:', data)
-
-      // Transform the data to ensure proper structure
-      const transformedAppointments = (data || []).map(appointment => ({
-        ...appointment,
-        service_items: (() => {
-          try {
-            if (!appointment.service_items) return []
-            if (Array.isArray(appointment.service_items)) return appointment.service_items
-            return JSON.parse(appointment.service_items)
-          } catch (e) {
-            console.error('Error parsing service_items:', e)
-            return []
-          }
-        })()
-      }))
-
-      console.log('Transformed appointments:', transformedAppointments)
-      setUpcomingAppointments(transformedAppointments)
+      setUpcomingAppointments(upcoming)
     } catch (error) {
       console.error('Error fetching upcoming appointments:', error)
       toast.error('Failed to fetch upcoming appointments')
     } finally {
       setUpcomingLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     fetchTotalCustomers()
@@ -274,7 +254,7 @@ export function DashboardPage() {
             <Button
               variant="link"
               className="px-0 text-xs text-muted-foreground"
-              onClick={() => router.push('/dashboard/appointments')}
+              onClick={() => router.push('/dashboard/admin-appointments')}
             >
               View Appointments
             </Button>
@@ -282,60 +262,104 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">No recent orders</p>
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-3">
+      <div className="grid gap-4">
+        <Card>
           <CardHeader>
             <CardTitle>Upcoming Appointments</CardTitle>
           </CardHeader>
           <CardContent>
             {upcomingLoading ? (
               <div className="flex items-center justify-center h-[200px]">
-                <p className="text-sm text-muted-foreground">Loading appointments...</p>
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             ) : upcomingAppointments.length > 0 ? (
               <div className="space-y-4">
                 {upcomingAppointments.map((appointment) => {
-                  console.log('Rendering appointment:', appointment)
-                  const appointmentDate = new Date(appointment.appointment_date)
+                  const appointmentDate = addDays(new Date(appointment.appointment_date), 1)
                   const formattedDate = format(appointmentDate, 'MMM d, yyyy')
+                  const formattedTime = format(new Date(`2000-01-01T${appointment.appointment_time}`), 'h:mm a')
 
                   return (
-                    <div key={appointment.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{appointment.pet_name}</p>
-                          <span className="text-sm text-muted-foreground">•</span>
+                    <div key={appointment.id} className="flex items-center justify-between p-4 rounded-lg border">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 relative rounded-full overflow-hidden bg-primary/10">
+                          {appointment.pet_image_url ? (
+                            <Image
+                              src={appointment.pet_image_url}
+                              alt={appointment.pet_name}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 768px) 48px, 96px"
+                              quality={90}
+                              loading="eager"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              <PawPrint className="h-6 w-6 text-primary/60" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{appointment.pet_name}</p>
+                            <span className="text-sm text-muted-foreground">•</span>
+                            <p className="text-sm text-muted-foreground">
+                              {formattedDate} at {formattedTime}
+                            </p>
+                          </div>
+                          {appointment.service_items?.length > 0 && (
+                            <p className="text-sm text-muted-foreground">
+                              Services: {Array.isArray(appointment.service_items) 
+                                ? appointment.service_items.join(', ')
+                                : typeof appointment.service_items === 'string'
+                                  ? JSON.parse(appointment.service_items).join(', ')
+                                  : ''}
+                            </p>
+                          )}
                           <p className="text-sm text-muted-foreground">
-                            {formattedDate} at {appointment.appointment_time}
+                            Groomer: {appointment.employee_name}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Duration: {Math.floor(appointment.appointment_duration / 60)}h {appointment.appointment_duration % 60}m
                           </p>
                         </div>
-                        {appointment.service_items?.length > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Services: {appointment.service_items.join(', ')}
-                          </p>
-                        )}
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedAppointment(appointment)
+                          setIsDetailsOpen(true)
+                        }}
+                      >
+                        View Details
+                      </Button>
                     </div>
                   )
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-[200px]">
-                <p className="text-sm text-muted-foreground">No upcoming appointments</p>
+              <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
+                <Calendar className="h-8 w-8 mb-2" />
+                <p>No upcoming appointments</p>
+                <Button 
+                  variant="link" 
+                  onClick={() => router.push('/dashboard/admin-appointments')}
+                  className="mt-2"
+                >
+                  View All Appointments
+                </Button>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <AppointmentDetailsDialog
+        appointment={selectedAppointment}
+        open={isDetailsOpen}
+        onOpenChange={setIsDetailsOpen}
+      />
     </div>
   )
 }

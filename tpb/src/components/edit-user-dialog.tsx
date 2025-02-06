@@ -35,8 +35,8 @@ export const EditUserDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[425px] h-[80vh] flex flex-col p-0">
+        <DialogHeader className="px-4 py-2">
           <DialogTitle>Edit User</DialogTitle>
         </DialogHeader>
         <EditUserForm

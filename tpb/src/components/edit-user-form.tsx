@@ -24,6 +24,7 @@ interface Pet {
   breed: string | null
   age: number | null
   user_id: string
+  weight: string | null
 }
 
 interface EditUserFormProps {
@@ -47,6 +48,7 @@ interface NewDog {
   dob: string
   breed: string
   gender: string
+  weight: string
 }
 
 export const EditUserForm = ({ user, onClose, onUpdate }: EditUserFormProps) => {
@@ -68,7 +70,8 @@ export const EditUserForm = ({ user, onClose, onUpdate }: EditUserFormProps) => 
     name: '',
     dob: '',
     breed: '',
-    gender: ''
+    gender: '',
+    weight: ''
   })
 
   useEffect(() => {
@@ -206,6 +209,7 @@ export const EditUserForm = ({ user, onClose, onUpdate }: EditUserFormProps) => 
           breed: newDog.breed || null,
           gender: newDog.gender,
           age: age,
+          weight: newDog.weight || null,
           user_id: user.id,
           created_at: new Date().toISOString()
         })
@@ -217,7 +221,7 @@ export const EditUserForm = ({ user, onClose, onUpdate }: EditUserFormProps) => 
       // Update the local pets state with the new pet
       setPets(prev => [newPet, ...prev])
       setShowNewDogForm(false)
-      setNewDog({ name: '', dob: '', breed: '', gender: '' })
+      setNewDog({ name: '', dob: '', breed: '', gender: '', weight: '' })
       toast.success('Dog added successfully')
     } catch (error) {
       console.error('Error adding dog:', error)
@@ -233,228 +237,246 @@ export const EditUserForm = ({ user, onClose, onUpdate }: EditUserFormProps) => 
         console.log('Form submission started')
         handleSubmit(e)
       }} 
-      className="space-y-6"
+      className="flex flex-col flex-1 h-full"
     >
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium">Personal Information</h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="first_name">First Name</Label>
-            <Input
-              id="first_name"
-              name="first_name"
-              value={formData.first_name}
-              onChange={handleChange}
-              placeholder="First Name"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="last_name">Last Name</Label>
-            <Input
-              id="last_name"
-              name="last_name"
-              value={formData.last_name}
-              onChange={handleChange}
-              placeholder="Last Name"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            name="email"
-            value={formData.email}
-            disabled
-            className="bg-slate-100"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            placeholder="123-456-7890"
-            maxLength={12} // Account for the hyphens
-          />
-        </div>
-
-        <h3 className="text-lg font-medium pt-2">Address</h3>
-        <div className="space-y-2">
-          <Label htmlFor="address">Street Address</Label>
-          <Input
-            id="address"
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            placeholder="Street Address"
-          />
-        </div>
-
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-6 space-y-2">
-            <Label htmlFor="city">City</Label>
-            <Input
-              id="city"
-              name="city"
-              value={formData.city}
-              onChange={handleChange}
-              placeholder="City"
-            />
-          </div>
-
-          <div className="col-span-3 space-y-2">
-            <Label htmlFor="state">State</Label>
-            <Input
-              id="state"
-              name="state"
-              value={formData.state}
-              onChange={handleChange}
-              placeholder="State"
-              maxLength={2}
-            />
-          </div>
-
-          <div className="col-span-3 space-y-2">
-            <Label htmlFor="zip_code">ZIP Code</Label>
-            <Input
-              id="zip_code"
-              name="zip_code"
-              value={formData.zip_code}
-              onChange={handleChange}
-              placeholder="ZIP Code"
-              maxLength={5}
-              pattern="[0-9]{5}"
-            />
-          </div>
-        </div>
-
-        <div className="pt-2">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium">Dogs</h3>
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm"
-              onClick={() => setShowNewDogForm(true)}
-              disabled={showNewDogForm}
-            >
-              Add Dog
-            </Button>
-          </div>
-          
-          <div className="space-y-3">
-            {showNewDogForm && (
-              <div className="p-4 border rounded-lg bg-slate-50 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium">New Dog</h4>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowNewDogForm(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="dog-name">Name</Label>
-                    <Input
-                      id="dog-name"
-                      value={newDog.name}
-                      onChange={(e) => setNewDog(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Dog's name"
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="dog-dob">Date of Birth</Label>
-                    <Input
-                      id="dog-dob"
-                      type="date"
-                      value={newDog.dob}
-                      onChange={(e) => setNewDog(prev => ({ ...prev, dob: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="dog-breed">Breed</Label>
-                    <Input
-                      id="dog-breed"
-                      value={newDog.breed}
-                      onChange={(e) => setNewDog(prev => ({ ...prev, breed: e.target.value }))}
-                      placeholder="Dog's breed"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="dog-gender">Gender</Label>
-                    <Select
-                      value={newDog.gender}
-                      onValueChange={(value) => setNewDog(prev => ({ ...prev, gender: value }))}
-                    >
-                      <SelectTrigger id="dog-gender">
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    onClick={handleSaveNewDog}
-                    disabled={!newDog.name || !newDog.dob}
-                  >
-                    Save Dog
-                  </Button>
-                </div>
+      <div className="flex-1 overflow-y-auto px-4">
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium sticky top-0 bg-white py-2 z-10">Personal Information</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">First Name</Label>
+                <Input
+                  id="first_name"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  placeholder="First Name"
+                  required
+                />
               </div>
-            )}
 
-            {pets.map(pet => (
-              <div 
-                key={pet.id}
-                className="flex items-center justify-between p-3 border rounded-lg bg-slate-50"
-              >
-                <div>
-                  <p className="font-medium">{pet.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {pet.breed ? pet.breed : 'Mixed Breed'}
-                    {pet.age ? ` • ${pet.age} years old` : ''}
-                  </p>
-                </div>
-                <Button variant="ghost" size="sm">
-                  Edit
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last Name</Label>
+                <Input
+                  id="last_name"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  placeholder="Last Name"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                name="email"
+                value={formData.email}
+                disabled
+                className="bg-slate-100"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="123-456-7890"
+                maxLength={12} // Account for the hyphens
+              />
+            </div>
+
+            <h3 className="text-lg font-medium pt-2">Address</h3>
+            <div className="space-y-2">
+              <Label htmlFor="address">Street Address</Label>
+              <Input
+                id="address"
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                placeholder="Street Address"
+              />
+            </div>
+
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-6 space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                  placeholder="City"
+                />
+              </div>
+
+              <div className="col-span-3 space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Input
+                  id="state"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  placeholder="State"
+                  maxLength={2}
+                />
+              </div>
+
+              <div className="col-span-3 space-y-2">
+                <Label htmlFor="zip_code">ZIP Code</Label>
+                <Input
+                  id="zip_code"
+                  name="zip_code"
+                  value={formData.zip_code}
+                  onChange={handleChange}
+                  placeholder="ZIP Code"
+                  maxLength={5}
+                  pattern="[0-9]{5}"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">Dogs</h3>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowNewDogForm(true)}
+                  disabled={showNewDogForm}
+                >
+                  Add Dog
                 </Button>
               </div>
-            ))}
-            
-            {!showNewDogForm && pets.length === 0 && (
-              <div className="text-center py-6 text-muted-foreground">
-                No dogs registered
+              
+              <div className="space-y-3">
+                {showNewDogForm && (
+                  <div className="p-4 border rounded-lg bg-slate-50 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">New Dog</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowNewDogForm(false)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="dog-name">Name</Label>
+                        <Input
+                          id="dog-name"
+                          value={newDog.name}
+                          onChange={(e) => setNewDog(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder="Dog's name"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="dog-dob">Date of Birth</Label>
+                        <Input
+                          id="dog-dob"
+                          type="date"
+                          value={newDog.dob}
+                          onChange={(e) => setNewDog(prev => ({ ...prev, dob: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="dog-breed">Breed</Label>
+                        <Input
+                          id="dog-breed"
+                          value={newDog.breed}
+                          onChange={(e) => setNewDog(prev => ({ ...prev, breed: e.target.value }))}
+                          placeholder="Dog's breed"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="dog-weight">Weight (lbs)</Label>
+                        <Input
+                          id="dog-weight"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={newDog.weight}
+                          onChange={(e) => setNewDog(prev => ({ ...prev, weight: e.target.value }))}
+                          placeholder="Dog's weight"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="dog-gender">Gender</Label>
+                        <Select
+                          value={newDog.gender}
+                          onValueChange={(value) => setNewDog(prev => ({ ...prev, gender: value }))}
+                        >
+                          <SelectTrigger id="dog-gender">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        onClick={handleSaveNewDog}
+                        disabled={!newDog.name || !newDog.dob}
+                      >
+                        Save Dog
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {pets.map(pet => (
+                  <div 
+                    key={pet.id}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-slate-50"
+                  >
+                    <div>
+                      <p className="font-medium">{pet.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {pet.breed ? pet.breed : 'Mixed Breed'}
+                        {pet.age ? ` • ${pet.age} years old` : ''}
+                        {pet.weight ? ` • ${pet.weight} lbs` : ''}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="sm">
+                      Edit
+                    </Button>
+                  </div>
+                ))}
+                
+                {!showNewDogForm && pets.length === 0 && (
+                  <div className="text-center py-6 text-muted-foreground">
+                    No dogs registered
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 p-4 border-t bg-white mt-auto">
         <Button
           type="button"
           variant="outline"

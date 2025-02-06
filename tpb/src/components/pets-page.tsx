@@ -650,10 +650,14 @@ export function PetsPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-3 gap-4 text-sm">
                       <div className="space-y-1">
                         <span className="text-muted-foreground">Age</span>
                         <p className="font-medium">{calculateAge(pet.dob)} years</p>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground">Gender</span>
+                        <p className="font-medium">{pet.gender || 'Not specified'}</p>
                       </div>
                       <div className="space-y-1">
                         <span className="text-muted-foreground">Weight</span>

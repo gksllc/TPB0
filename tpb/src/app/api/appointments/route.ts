@@ -12,15 +12,27 @@ export async function GET() {
   try {
     const { data, error } = await supabase
       .from('appointments')
-      .select('*')
+      .select(`
+        *,
+        pets:pet_id (
+          image_url
+        )
+      `)
       .order('appointment_date', { ascending: true })
       .order('appointment_time', { ascending: true })
 
     if (error) throw error
 
+    // Transform the data to include pet_image_url at the top level
+    const transformedData = data.map(appointment => ({
+      ...appointment,
+      pet_image_url: appointment.pets?.image_url,
+      pets: undefined // Remove the nested pets object
+    }))
+
     return NextResponse.json({
       success: true,
-      data
+      data: transformedData
     })
   } catch (error) {
     console.error('Error fetching appointments:', error)
@@ -115,6 +127,7 @@ Contact: ${appointmentData.customer.email} | ${appointmentData.customer.phone}`
         status: 'Confirmed',
         appointment_date: appointmentData.date,
         appointment_time: appointmentData.time,
+        appointment_duration: appointmentData.duration,
         c_order_id: orderData.id,
         employee_id: appointmentData.employee.id,
         employee_name: appointmentData.employee_name

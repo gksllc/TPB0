@@ -3,34 +3,38 @@ import { NextResponse } from 'next/server'
 // Use the correct API base URL for Clover API v3
 const CLOVER_API_BASE_URL = 'https://api.clover.com/v3'
 
-// Service category keywords to look for (case-insensitive)
-const SERVICE_KEYWORDS = ['service', 'groom', 'pet', 'wash', 'trim', 'cut']
-
 export async function GET() {
   try {
     const apiToken = process.env.CLOVER_API_TOKEN
     const merchantId = process.env.CLOVER_MERCHANT_ID
 
     if (!apiToken || !merchantId) {
-      console.error('Missing Clover credentials')
+      console.error('Missing Clover credentials:', { 
+        hasToken: !!apiToken, 
+        hasMerchantId: !!merchantId 
+      })
       return NextResponse.json({
         success: false,
         error: 'Clover API configuration error'
       }, { status: 500 })
     }
 
-    // First, try to fetch all items directly
+    // Fetch all items from the specific merchant
     const itemsUrl = new URL(`${CLOVER_API_BASE_URL}/merchants/${merchantId}/items`)
-    itemsUrl.searchParams.append('expand', 'categories,price')
+    itemsUrl.searchParams.append('expand', 'categories,price,tax')
     itemsUrl.searchParams.append('limit', '1000')
+    itemsUrl.searchParams.append('filter', 'hidden=false')
+    itemsUrl.searchParams.append('orderBy', 'name ASC')
     
     console.log('Fetching all items with URL:', itemsUrl.toString().replace(apiToken, 'REDACTED'))
 
     const itemsResponse = await fetch(itemsUrl.toString(), {
       headers: {
         'Accept': 'application/json',
-        'Authorization': `Bearer ${apiToken}`
-      }
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json'
+      },
+      cache: 'no-store' // Disable caching to always get fresh data
     })
 
     if (!itemsResponse.ok) {
@@ -45,54 +49,42 @@ export async function GET() {
 
     const itemsData = await itemsResponse.json()
     console.log('Found items:', {
-      total: itemsData.elements?.length || 0
+      total: itemsData.elements?.length || 0,
+      sample: itemsData.elements?.[0]
     })
 
-    // Filter items that are likely services based on their name or category
-    const serviceItems = itemsData.elements
-      .filter((item: any) => {
-        // Check if item name contains service keywords
-        const itemName = item.name?.toLowerCase() || ''
-        const hasServiceKeyword = SERVICE_KEYWORDS.some(keyword => 
-          itemName.includes(keyword.toLowerCase())
-        )
+    if (!itemsData.elements || !Array.isArray(itemsData.elements)) {
+      console.error('Invalid response format:', itemsData)
+      throw new Error('Invalid response format from Clover API')
+    }
 
-        // Check if any of the item's categories contain service keywords
-        const categories = item.categories?.elements || []
-        const hasServiceCategory = categories.some((category: any) => {
-          const categoryName = category.name?.toLowerCase() || ''
-          return SERVICE_KEYWORDS.some(keyword => 
-            categoryName.includes(keyword.toLowerCase())
-          )
-        })
-
-        return hasServiceKeyword || hasServiceCategory
-      })
+    // Map all items to a consistent format
+    const formattedItems = itemsData.elements
+      .filter(item => item.price !== undefined && item.price !== null) // Only include items with prices
       .map((item: any) => ({
         id: item.id,
         name: item.name,
         price: item.price || 0,
         description: item.description || '',
-        categories: (item.categories?.elements || []).map((cat: any) => cat.name)
+        categories: (item.categories?.elements || []).map((cat: any) => cat.name),
+        hidden: item.hidden || false,
+        available: !item.hidden,
+        taxRates: item.tax ? [item.tax] : []
       }))
+      .sort((a, b) => a.name.localeCompare(b.name)) // Sort by name
 
-    console.log('Filtered service items:', {
-      count: serviceItems.length,
-      items: serviceItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        categories: item.categories
-      }))
+    console.log('Formatted items:', {
+      count: formattedItems.length,
+      sample: formattedItems[0]
     })
 
-    if (serviceItems.length === 0) {
-      console.warn('No service items found')
+    if (formattedItems.length === 0) {
+      console.warn('No items found')
     }
 
     return NextResponse.json({
       success: true,
-      data: serviceItems
+      data: formattedItems
     })
 
   } catch (error: any) {

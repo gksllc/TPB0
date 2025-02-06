@@ -11,7 +11,9 @@ import {
   LogOut,
   Clock,
   Search,
-  Plus
+  Plus,
+  ChevronsUpDown,
+  Check
 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,6 +31,9 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 type RawAppointment = {
   id: string // Supabase UUID
@@ -43,7 +48,10 @@ type RawAppointment = {
   appointment_time: string
   employee_id: string // Clover employee ID
   employee_name: string // Employee name
-  pets: Array<{ name: string }> | null
+  pets: {
+    name: string
+    image_url: string | null
+  } | null
 }
 
 type Appointment = Omit<RawAppointment, 'pets'> & {
@@ -51,6 +59,7 @@ type Appointment = Omit<RawAppointment, 'pets'> & {
   employee_id: string // Clover employee ID
   employee_name: string // Employee name
   service_items: string[] // Array of service names
+  pet_image_url?: string | null
 }
 
 type Groomer = {
@@ -71,10 +80,13 @@ type Pet = {
   name: string
   breed: string
   user_id: string
+  size?: string
 }
 
 const convertTo12Hour = (time24: string): string => {
-  const [hours, minutes] = time24.split(':')
+  // Remove any existing AM/PM first
+  const cleanTime = time24.replace(/\s*[AaPp][Mm]\s*$/, '')
+  const [hours, minutes] = cleanTime.split(':')
   const hour = parseInt(hours, 10)
   const ampm = hour >= 12 ? 'PM' : 'AM'
   const hour12 = hour % 12 || 12
@@ -105,6 +117,7 @@ export function ClientAppointmentsPage() {
   const [isGroomersLoaded, setIsGroomersLoaded] = useState(false)
   const [isServicesLoaded, setIsServicesLoaded] = useState(false)
   const [isPetsLoaded, setIsPetsLoaded] = useState(false)
+  const [serviceSearchQuery, setServiceSearchQuery] = useState("")
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/client" },
@@ -158,7 +171,8 @@ export function ClientAppointmentsPage() {
             employee_id,
             employee_name,
             pets (
-              name
+              name,
+              image_url
             )
           `)
           .eq('user_id', currentUser.id)
@@ -202,7 +216,8 @@ export function ClientAppointmentsPage() {
             appointment_date: rawData.appointment_date,
             appointment_time: rawData.appointment_time,
             employee_id: rawData.employee_id,
-            employee_name: rawData.employee_name
+            employee_name: rawData.employee_name,
+            pet_image_url: rawData.pets?.image_url || null
           }
         })
 
@@ -563,6 +578,152 @@ export function ClientAppointmentsPage() {
     setAvailableTimes([])
   }
 
+  // Add helper function to determine size category
+  const getSizeCategory = (size: string | null | undefined): 'standard' | 'large' | 'x-large' => {
+    if (!size) return 'standard'
+    
+    const normalizedSize = size.toLowerCase()
+    if (['x-large', 'xlarge', 'extra large', 'extra-large'].includes(normalizedSize)) {
+      return 'x-large'
+    }
+    if (['large', 'l'].includes(normalizedSize)) {
+      return 'large'
+    }
+    // x-small, small, medium are all considered standard
+    return 'standard'
+  }
+
+  // Add helper function to check if service matches pet size
+  const isServiceMatchingPetSize = (serviceName: string, petSize: string | null | undefined): boolean => {
+    const sizeCategory = getSizeCategory(petSize)
+    const normalizedName = serviceName.toLowerCase()
+
+    // If service name doesn't contain size indicators, it's available for all sizes
+    if (!normalizedName.includes('standard') && 
+        !normalizedName.includes('large') && 
+        !normalizedName.includes('x-large') &&
+        !normalizedName.includes('xlarge')) {
+      return true
+    }
+
+    switch (sizeCategory) {
+      case 'x-large':
+        return normalizedName.includes('x-large') || normalizedName.includes('xlarge')
+      case 'large':
+        return normalizedName.includes('large') && 
+               !normalizedName.includes('x-large') && 
+               !normalizedName.includes('xlarge')
+      case 'standard':
+        return normalizedName.includes('standard')
+      default:
+        return true
+    }
+  }
+
+  // Calculate total duration of selected services
+  const calculateTotalDuration = (selectedServiceIds: string[]): number => {
+    const selectedServicesDetails = services.map(serviceId => {
+      const service = services.find(s => s.id === serviceId)
+      return service || null
+    }).filter(Boolean)
+
+    // Get duration from service name or use default 30 minutes
+    return selectedServicesDetails.reduce((total, service) => {
+      if (!service) return total
+      // Try to extract duration from service name (e.g., "Service Name - 45 min")
+      const durationMatch = service.name.match(/(\d+)\s*min/i)
+      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
+    }, 0)
+  }
+
+  // Filter services based on search query and pet size
+  const filteredServices = services.filter((service) => {
+    // First check if service matches the pet size
+    if (selectedPet && !isServiceMatchingPetSize(service.name, selectedPet.size)) {
+      return false
+    }
+
+    // Then apply search filter if there's a search query
+    if (serviceSearchQuery === "") return true
+    
+    const searchTerms = serviceSearchQuery.toLowerCase()
+    const serviceName = service.name.toLowerCase()
+    const serviceDescription = (service.description || '').toLowerCase()
+    
+    return serviceName.includes(searchTerms) || serviceDescription.includes(searchTerms)
+  })
+
+  // Update useEffect for fetching available times
+  useEffect(() => {
+    const fetchAvailableTimes = async () => {
+      // Reset times when dependencies change
+      setAvailableTimes([])
+      setSelectedTime("")
+
+      if (!selectedDate || !selectedGroomer || !selectedServices.length) {
+        console.log('Missing required fields for fetching times:', {
+          hasDate: !!selectedDate,
+          hasGroomer: !!selectedGroomer,
+          servicesCount: selectedServices.length
+        })
+        return
+      }
+
+      setIsLoadingTimes(true)
+      try {
+        // Calculate total duration of selected services
+        const totalDuration = calculateTotalDuration(selectedServices)
+
+        console.log('Fetching available times with params:', {
+          date: selectedDate,
+          groomerId: selectedGroomer,
+          duration: totalDuration,
+          selectedServices: selectedServices
+        })
+
+        // Get all possible time slots from the availability endpoint
+        const response = await fetch(
+          `/api/clover/availability?date=${selectedDate}&groomerId=${selectedGroomer}&duration=${totalDuration}`
+        )
+        
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('Failed to fetch availability:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          })
+          throw new Error('Failed to fetch availability')
+        }
+        
+        const data = await response.json()
+        
+        if (!data.success) {
+          console.error('API returned error:', data.error)
+          throw new Error(data.error || 'Failed to fetch availability')
+        }
+
+        console.log('API Response:', data)
+
+        if (!data.data.availableTimeSlots || data.data.availableTimeSlots.length === 0) {
+          console.log('No available time slots returned from the API')
+        } else {
+          console.log('Available time slots:', data.data.availableTimeSlots)
+        }
+
+        setAvailableTimes(data.data.availableTimeSlots || [])
+      } catch (error) {
+        console.error('Error fetching availability:', error)
+        toast.error('Failed to fetch available times')
+        setAvailableTimes([])
+      } finally {
+        setIsLoadingTimes(false)
+      }
+    }
+
+    fetchAvailableTimes()
+  }, [selectedDate, selectedGroomer, selectedServices])
+
   return (
     <div className="flex h-screen w-full bg-slate-50">
       <aside className="w-64 bg-slate-800 text-white p-6">
@@ -657,8 +818,19 @@ export function ClientAppointmentsPage() {
                       className="flex items-center justify-between p-4 rounded-lg border"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <Clock className="h-6 w-6 text-primary" />
+                        <div className="h-12 w-12 relative rounded-full overflow-hidden bg-primary/10">
+                          {appointment.pet_image_url ? (
+                            <Image
+                              src={appointment.pet_image_url}
+                              alt={appointment.pet_name}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              <PawPrint className="h-6 w-6 text-primary" />
+                            </div>
+                          )}
                         </div>
                         <div>
                           <h3 className="font-medium">
@@ -714,6 +886,111 @@ export function ClientAppointmentsPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
+              <Label htmlFor="pet">Pet</Label>
+              <Select onValueChange={handlePetChange} value={selectedPet}>
+                <SelectTrigger>
+                  <SelectValue placeholder={isLoadingPets ? "Loading pets..." : "Select a pet"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {pets.map((pet) => (
+                    <SelectItem key={pet.id} value={pet.name}>
+                      {pet.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="services">Services</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="justify-between w-full"
+                  >
+                    {selectedServices.length > 0
+                      ? `${selectedServices.length} service${selectedServices.length > 1 ? 's' : ''} selected`
+                      : "Select services..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[400px] p-2">
+                  <div className="flex items-center border-b px-3 pb-2">
+                    <Input
+                      placeholder="Search services..."
+                      value={serviceSearchQuery}
+                      onChange={(e) => setServiceSearchQuery(e.target.value)}
+                      className="border-0 focus:ring-0"
+                    />
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto pt-2">
+                    {isLoadingServices ? (
+                      <div className="text-sm text-muted-foreground p-2">
+                        Loading services...
+                      </div>
+                    ) : !selectedPet ? (
+                      <div className="text-sm text-muted-foreground p-2">
+                        Please select a pet first to see available services
+                      </div>
+                    ) : filteredServices.length === 0 ? (
+                      <div className="text-sm text-muted-foreground p-2">
+                        {serviceSearchQuery ? "No matching services found" : "No services available"}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="px-2 py-1 text-xs text-muted-foreground">
+                          Showing services for {selectedPet.name} ({getSizeCategory(selectedPet.size)} size)
+                        </div>
+                        {filteredServices.map((service) => (
+                          <div
+                            key={service.id}
+                            className="flex items-center space-x-2 p-2 hover:bg-accent rounded-sm cursor-pointer"
+                            onClick={() => {
+                              setSelectedServices((prev) => {
+                                const isSelected = prev.includes(service.id)
+                                if (isSelected) {
+                                  return prev.filter((id) => id !== service.id)
+                                } else {
+                                  return [...prev, service.id]
+                                }
+                              })
+                            }}
+                          >
+                            <div className={cn(
+                              "h-4 w-4 border rounded-sm flex items-center justify-center",
+                              selectedServices.includes(service.id) && "bg-primary border-primary"
+                            )}>
+                              {selectedServices.includes(service.id) && (
+                                <Check className="h-3 w-3 text-primary-foreground" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">
+                                {service.name}
+                              </div>
+                              {service.price > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  ${(service.price / 100).toFixed(2)}
+                                </div>
+                              )}
+                              {service.description && (
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {service.description}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="grid gap-2">
               <Label htmlFor="groomer">Groomer</Label>
               <Select onValueChange={handleGroomerChange}>
                 <SelectTrigger>
@@ -745,81 +1022,63 @@ export function ClientAppointmentsPage() {
               <div className="grid gap-2">
                 <Label htmlFor="time">Appointment Time</Label>
                 <Select 
-                  disabled={isLoadingTimes || availableTimes.length === 0}
+                  disabled={isLoadingTimes || availableTimes.length === 0 || !selectedServices.length}
                   onValueChange={handleTimeChange}
                   value={selectedTime}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={
-                      isLoadingTimes 
-                        ? "Loading available times..." 
-                        : availableTimes.length === 0 
-                          ? "No available times" 
-                          : "Select a time"
+                      !selectedServices.length 
+                        ? "Select services first"
+                        : isLoadingTimes
+                          ? "Loading available times..."
+                          : availableTimes.length === 0
+                            ? "No available times"
+                            : "Select time"
                     } />
                   </SelectTrigger>
-                  <SelectContent>
-                    {availableTimes.map((time) => (
-                      <SelectItem key={time} value={time}>
-                        {convertTo12Hour(time)}
-                      </SelectItem>
-                    ))}
+                  <SelectContent 
+                    className="max-h-[300px] overflow-y-auto"
+                    align="start"
+                    side="top"
+                    position="popper"
+                  >
+                    <div className="grid grid-cols-2 gap-2 p-2">
+                      {!selectedServices.length ? (
+                        <div className="col-span-2 text-sm text-muted-foreground p-2">
+                          Please select services first
+                        </div>
+                      ) : isLoadingTimes ? (
+                        <div className="col-span-2 text-sm text-muted-foreground p-2">
+                          Loading available times...
+                        </div>
+                      ) : availableTimes.length === 0 ? (
+                        <div className="col-span-2 text-sm text-muted-foreground p-2">
+                          No available times for selected date
+                        </div>
+                      ) : (
+                        availableTimes
+                          .sort((a, b) => {
+                            // Convert times to comparable format for sorting
+                            const timeA = new Date(`2000/01/01 ${a}`).getTime()
+                            const timeB = new Date(`2000/01/01 ${b}`).getTime()
+                            return timeA - timeB
+                          })
+                          .map((time) => (
+                            <SelectItem 
+                              key={time} 
+                              value={time}
+                              className="cursor-pointer rounded-sm"
+                            >
+                              {convertTo12Hour(time)}
+                            </SelectItem>
+                          ))
+                      )}
+                    </div>
                   </SelectContent>
                 </Select>
               </div>
             )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="pet">Pet</Label>
-              <Select onValueChange={handlePetChange} value={selectedPet}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isLoadingPets ? "Loading pets..." : "Select a pet"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {pets.map((pet) => (
-                    <SelectItem key={pet.id} value={pet.name}>
-                      {pet.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="services">Services</Label>
-              <div className="space-y-4">
-                {isLoadingServices ? (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  </div>
-                ) : services.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No services available</p>
-                ) : (
-                  services.map((service) => (
-                    <div key={service.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={service.id}
-                        checked={selectedServices.includes(service.id)}
-                        onChange={() => handleServiceChange(service.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <label htmlFor={service.id} className="flex-1 text-sm">
-                        {service.name} - ${(service.price / 100).toFixed(2)}
-                      </label>
-                    </div>
-                  ))
-                )}
-                {selectedServices.length > 0 && (
-                  <div className="pt-2 text-sm font-medium">
-                    Total: ${(selectedServices.reduce((sum, serviceId) => {
-                      const service = services.find(s => s.id === serviceId)
-                      return sum + (service?.price || 0)
-                    }, 0) / 100).toFixed(2)}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
           <DialogFooter>
             <Button
