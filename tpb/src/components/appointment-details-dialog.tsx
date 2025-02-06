@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import debounce from 'lodash/debounce'
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from "@/lib/database.types"
 import {
   AlertDialog,
