@@ -262,6 +262,13 @@ export function AdminAppointmentsPage() {
     return matchesSearch && matchesStatus
   })
 
+  useEffect(() => {
+    if (open && isEditing && (!employees.length || !availableServices.length)) {
+      fetchEmployees()
+      fetchServices()
+    }
+  }, [open, isEditing, employees.length, availableServices.length, orders.length])
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">

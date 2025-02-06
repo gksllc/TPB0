@@ -99,57 +99,27 @@ export function ProfileEditPage() {
 
   // Fetch user data when component mounts
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchProfile = async () => {
       try {
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        if (authError) throw authError
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
 
-        if (!user) {
-          router.push('/auth')
-          return
-        }
-
-        // Get the user's data from the users table
-        const { data: userData, error: userError } = await supabase
+        const { data, error } = await supabase
           .from('users')
           .select('*')
           .eq('id', user.id)
           .single()
 
-        if (userError) throw userError
-
-        // Fetch secondary contacts separately
-        const { data: contactsData, error: contactsError } = await supabase
-          .from('secondary_contacts')
-          .select('*')
-          .eq('user_id', user.id)
-
-        if (contactsError) throw contactsError
-
-        // Update profile state with fetched data
-        setProfile({
-          first_name: userData.first_name || '',
-          middle_initial: '', // Not in current schema
-          last_name: userData.last_name || '',
-          email: userData.email || '',
-          phone: userData.phone || '',
-          address: userData.address || '',
-          city: userData.city || '',
-          state: userData.state || '',
-          zip_code: userData.zip_code || '',
-          preferred_communication: userData.preferred_communication || 'email',
-          secondary_contacts: contactsData || []
-        })
+        if (error) throw error
+        setProfile(data)
       } catch (error) {
         console.error('Error fetching profile:', error)
-        toast.error("Error loading profile")
-      } finally {
-        setLoading(false)
+        toast.error('Failed to load profile')
       }
     }
 
-    fetchUserProfile()
-  }, [supabase, router])
+    fetchProfile()
+  }, [supabase])
 
   useEffect(() => {
     const checkPolicies = async () => {
@@ -171,36 +141,10 @@ export function ProfileEditPage() {
   }, [])
 
   const debouncedUpdate = useCallback(
-    debounce(async (field: string, value: any) => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        // Special handling for email updates
-        if (field === 'email') {
-          const { error: emailError } = await supabase.auth.updateUser({
-            email: value,
-          })
-          if (emailError) throw emailError
-        }
-
-        const { error } = await supabase
-          .from('users')
-          .update({ [field]: value })
-          .eq('id', user.id)
-
-        if (error) throw error
-
-        // Show success message only for immediate feedback fields
-        if (['phone', 'preferred_communication'].includes(field)) {
-          toast.success(`${field.replace('_', ' ')} updated successfully`)
-        }
-      } catch (error) {
-        console.error(`Error updating ${field}:`, error)
-        toast.error(`Failed to update ${field.replace('_', ' ')}`)
-      }
-    }, 1000),
-    [supabase]
+    (field: keyof UserProfile, value: string) => {
+      updateProfile(field, value)
+    },
+    [updateProfile]
   )
 
   const handleFieldUpdate = (field: keyof UserProfile, value: string) => {
