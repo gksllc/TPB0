@@ -150,7 +150,7 @@ export function ClientPage() {
             appointment_time: rawData.appointment_time,
             employee_id: rawData.employee_id,
             employee_name: rawData.employee_name,
-            pet_image_url: rawData.pets?.image_url
+            pet_image_url: Array.isArray(rawData.pets) && rawData.pets.length > 0 ? rawData.pets[0].image_url : null
           }
         })
 
