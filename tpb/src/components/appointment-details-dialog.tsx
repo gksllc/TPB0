@@ -132,7 +132,7 @@ export function AppointmentDetailsDialog({
   // Update the debouncedFetchTimes function to properly handle appointment durations
   const debouncedFetchTimes = useCallback(
     debounce(async (date: string, employeeId: string, services: string[]) => {
-      if (!date || !employeeId || !services.length) return
+      if (!date || !employeeId || !services.length || !appointment) return
 
       setIsLoadingTimes(true)
       try {
@@ -179,8 +179,8 @@ export function AppointmentDetailsDialog({
           .select('*')
           .eq('appointment_date', formattedDate)
           .eq('employee_id', employeeId)
-          .neq('id', appointment.id) // Exclude current appointment
-          .not('status', 'eq', 'cancelled') // Exclude cancelled appointments
+          .neq('id', appointment?.id) // Safely access id with optional chaining
+          .not('status', 'eq', 'cancelled')
 
         if (appointmentsError) {
           console.error('Error fetching existing appointments:', appointmentsError)
@@ -287,7 +287,7 @@ export function AppointmentDetailsDialog({
   // Fetch pet details when dialog opens
   useEffect(() => {
     const fetchPetDetails = async () => {
-      if (!open || !appointment.pet_id) return
+      if (!open || !appointment?.pet_id) return
 
       try {
         const { data: pet, error } = await supabase
@@ -311,7 +311,7 @@ export function AppointmentDetailsDialog({
     }
 
     fetchPetDetails()
-  }, [open, appointment.pet_id, supabase])
+  }, [open, appointment?.pet_id, supabase])
 
   // Remove the useEffect for fetching services and make it a regular function
   const fetchServices = async () => {
@@ -401,6 +401,8 @@ export function AppointmentDetailsDialog({
   }
 
   const handleSave = async () => {
+    if (!appointment) return
+
     setIsLoading(true)
     try {
       // Parse the selected date and time
@@ -484,14 +486,16 @@ export function AppointmentDetailsDialog({
     return serviceName.includes(searchTerms) || serviceDescription.includes(searchTerms)
   })
 
-  const appointmentDate = addDays(new Date(appointment.appointment_date), 1)
-  const formattedDate = format(appointmentDate, 'MMMM d, yyyy')
-  const formattedTime = format(new Date(`2000-01-01T${appointment.appointment_time}`), 'h:mm a')
-  const hours = Math.floor(appointment.appointment_duration / 60)
-  const minutes = appointment.appointment_duration % 60
+  const appointmentDate = appointment ? addDays(new Date(appointment.appointment_date), 1) : new Date()
+  const formattedDate = appointment ? format(appointmentDate, 'MMMM d, yyyy') : ''
+  const formattedTime = appointment ? format(new Date(`2000-01-01T${appointment.appointment_time}`), 'h:mm a') : ''
+  const hours = appointment ? Math.floor(appointment.appointment_duration / 60) : 0
+  const minutes = appointment ? appointment.appointment_duration % 60 : 0
 
   // Update the function to check for overlapping appointments
   const checkForOverlappingAppointments = async (selectedTime: string) => {
+    if (!appointment) return false
+
     try {
       // Convert the selected time to 24-hour format for comparison
       const [timeStr, period] = selectedTime.split(' ')
@@ -520,8 +524,8 @@ export function AppointmentDetailsDialog({
         .eq('appointment_date', date)
         .eq('employee_id', employeeId)
         .eq('appointment_time', timeString)
-        .neq('id', appointment.id) // Exclude current appointment
-        .not('status', 'eq', 'cancelled') // Exclude cancelled appointments
+        .neq('id', appointment.id)
+        .not('status', 'eq', 'cancelled')
 
       if (error) {
         console.error('Error checking for overlapping appointments:', error)
