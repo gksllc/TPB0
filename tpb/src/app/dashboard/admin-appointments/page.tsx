@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
 // Disable static generation for this route
+export const dynamicParams = true
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 

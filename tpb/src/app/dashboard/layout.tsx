@@ -3,6 +3,11 @@
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
+// Route configuration
+export const dynamicParams = true
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // Dynamically import DashboardNav with no SSR
 const DashboardNav = dynamic(
   () => import('@/components/dashboard-nav').then(mod => ({ default: mod.DashboardNav })),
