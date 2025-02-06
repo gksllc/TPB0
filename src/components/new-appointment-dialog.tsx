@@ -126,7 +126,16 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Initialize functions outside of useEffect
+  // Calculate total duration helper function
+  const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
+    const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
+    return selectedServices.reduce((total, service) => {
+      const durationMatch = service.name.match(/(\d+)\s*min/i)
+      return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
+    }, 0)
+  }, [availableServices])
+
+  // Fetch functions with useCallback
   const fetchCustomers = useCallback(async () => {
     if (isLoadingCustomers || allCustomers.length > 0) return
     
@@ -209,14 +218,14 @@ export function NewAppointmentDialog({
   // Initialize data loading
   useEffect(() => {
     if (open) {
-      void fetchCustomers()
-      void fetchEmployees()
-      void fetchServices()
+      fetchCustomers()
+      fetchEmployees()
+      fetchServices()
     } else {
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open]) // Remove function dependencies as they're stable with useCallback
+  }, [open, fetchCustomers, fetchEmployees, fetchServices])
 
   // Effect for fetching customer's pets
   useEffect(() => {
