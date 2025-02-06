@@ -622,14 +622,13 @@ export function ClientAppointmentsPage() {
 
   // Calculate total duration of selected services
   const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
-    const selectedServicesDetails = services.map(serviceId => {
-      const service = services.find(s => s.id === serviceId)
-      return service || null
-    }).filter(Boolean)
+    // Find the selected services from the services array
+    const selectedServicesDetails = selectedServiceIds
+      .map(serviceId => services.find(s => s.id === serviceId))
+      .filter((service): service is Service => service !== undefined)
 
     // Get duration from service name or use default 30 minutes
     return selectedServicesDetails.reduce((total, service) => {
-      if (!service) return total
       // Try to extract duration from service name (e.g., "Service Name - 45 min")
       const durationMatch = service.name.match(/(\d+)\s*min/i)
       return total + (durationMatch ? parseInt(durationMatch[1]) : 30)
