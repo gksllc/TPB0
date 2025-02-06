@@ -171,7 +171,7 @@ export function AppointmentDetailsDialog({
 
         console.log('API Response:', data)
 
-        let availableSlots = data.data.availableTimeSlots || []
+        let availableSlots: string[] = data.data.availableTimeSlots || []
 
         // Then fetch existing appointments for the selected date and employee
         const { data: existingAppointments, error: appointmentsError } = await supabase
