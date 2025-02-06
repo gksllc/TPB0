@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/lib/database.types"
+import { PostgrestError } from '@supabase/supabase-js'
 import { X } from 'lucide-react'
 import {
   Select,
@@ -95,15 +96,15 @@ export const EditUserForm = ({ user, onClose, onUpdate }: EditUserFormProps) => 
           .from('pets')
           .select('*')
           .eq('user_id', user.id)
-          .throwOnError()
 
         if (petsError) {
+          const error = petsError as PostgrestError
           console.error('Pets query error:', {
-            error: petsError,
-            message: petsError.message,
-            details: petsError.details,
-            hint: petsError.hint,
-            code: petsError.code
+            error,
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
           })
           toast.error('Failed to load pets')
           return
