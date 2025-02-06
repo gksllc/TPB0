@@ -2,14 +2,36 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { useSupabase } from '../contexts/SupabaseContext'
 import { toast } from 'react-hot-toast'
 
-const NewAppointmentDialog: React.FC = () => {
+interface Employee {
+  id: string
+  name: string
+}
+
+interface Service {
+  id: string
+  name: string
+  price: number
+  description: string
+}
+
+interface Customer {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone: string
+}
+
+export const NewAppointmentDialog = () => {
   const supabase = useSupabase()
+  
+  // State declarations
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false)
-  const [allCustomers, setAllCustomers] = useState<any[]>([])
+  const [allCustomers, setAllCustomers] = useState<Customer[]>([])
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
-  const [employees, setEmployees] = useState<any[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [isLoadingServices, setIsLoadingServices] = useState(false)
-  const [availableServices, setAvailableServices] = useState<any[]>([])
+  const [availableServices, setAvailableServices] = useState<Service[]>([])
   const [customerSearchQuery, setCustomerSearchQuery] = useState("")
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [open, setOpen] = useState(false)
@@ -116,14 +138,14 @@ const NewAppointmentDialog: React.FC = () => {
 
   useEffect(() => {
     if (open) {
+      fetchCustomers()
       fetchEmployees()
       fetchServices()
-      fetchCustomers()
     } else {
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open, fetchEmployees, fetchServices, fetchCustomers])
+  }, [open, fetchCustomers, fetchEmployees, fetchServices])
 
   return (
     <div>
