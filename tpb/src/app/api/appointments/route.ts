@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/database.types'
 
-const CLOVER_API_BASE_URL = 'https://api.clover.com/v3'
+const CLOVER_API_BASE_URL = process.env.NEXT_PUBLIC_CLOVER_API_BASE || 'https://api.clover.com'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     // 1. Create the order in Clover first
-    const orderUrl = `${CLOVER_API_BASE_URL}/merchants/${merchantId}/orders`
+    const orderUrl = `${CLOVER_API_BASE_URL}/v3/merchants/${merchantId}/orders`
     console.log('Creating Clover order:', orderUrl)
 
     const orderResponse = await fetch(orderUrl, {
@@ -92,7 +92,7 @@ Contact: ${appointmentData.customer.email} | ${appointmentData.customer.phone}`
       console.log('Adding service to order:', serviceId)
 
       const lineItemResponse = await fetch(
-        `${CLOVER_API_BASE_URL}/merchants/${merchantId}/orders/${orderData.id}/line_items`,
+        `${CLOVER_API_BASE_URL}/v3/merchants/${merchantId}/orders/${orderData.id}/line_items`,
         {
           method: 'POST',
           headers: {
@@ -141,7 +141,7 @@ Contact: ${appointmentData.customer.email} | ${appointmentData.customer.phone}`
       // If Supabase insert fails, try to delete the Clover order
       try {
         await fetch(
-          `${CLOVER_API_BASE_URL}/merchants/${merchantId}/orders/${orderData.id}`,
+          `${CLOVER_API_BASE_URL}/v3/merchants/${merchantId}/orders/${orderData.id}`,
           {
             method: 'DELETE',
             headers: {
