@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 interface CloverItem {
   id: string
   name: string
-  price?: number
+  price?: number | null
   description?: string
   categories?: {
     elements: Array<{
@@ -74,13 +74,12 @@ export async function GET() {
     }
 
     // Map all items to a consistent format
-    const elements: CloverItem[] = itemsData.elements
-    const formattedItems = elements
-      .filter((item: CloverItem) => item.price !== undefined && item.price !== null) // Only include items with prices
+    const formattedItems = itemsData.elements
+      .filter((item: CloverItem) => item.price !== undefined && item.price !== null)
       .map((item: CloverItem) => ({
         id: item.id,
         name: item.name,
-        price: item.price || 0,
+        price: item.price!,
         description: item.description || '',
         categories: (item.categories?.elements || []).map((cat) => cat.name),
         hidden: item.hidden || false,
