@@ -1,18 +1,32 @@
 'use client'
 
+import * as React from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { BarChart, Users, Calendar, DollarSign, PawPrint } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { format, subMonths, startOfMonth, endOfMonth, add, addDays } from 'date-fns'
 import Image from 'next/image'
 import { AppointmentDetailsDialog } from './appointment-details-dialog'
 
+// Dynamic imports for shadcn components
+const Card = dynamic(() => import('@/components/ui/card').then(mod => mod.Card))
+const CardHeader = dynamic(() => import('@/components/ui/card').then(mod => mod.CardHeader))
+const CardTitle = dynamic(() => import('@/components/ui/card').then(mod => mod.CardTitle))
+const CardContent = dynamic(() => import('@/components/ui/card').then(mod => mod.CardContent))
+
+// Explicitly type the Order interface
 interface Order {
   id: string
   total: number
@@ -27,7 +41,29 @@ interface Order {
   }>
 }
 
-export function DashboardPage() {
+// Type for upcoming appointments
+interface UpcomingAppointment {
+  id: string
+  appointment_date: string
+  appointment_time: string
+  pet_name: string
+  service_items: string[]
+  status: string
+  employee_name: string
+  pet_image_url: string | null
+  appointment_duration: number
+}
+
+// Type for month options
+interface MonthOption {
+  value: string
+  label: string
+  start: number
+  end: number
+  date: Date
+}
+
+export function DashboardPage(): JSX.Element {
   const router = useRouter()
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,22 +76,12 @@ export function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<Date>(startOfMonth(new Date()))
   const [todayAppointments, setTodayAppointments] = useState<number>(0)
   const [appointmentsLoading, setAppointmentsLoading] = useState(true)
-  const [upcomingAppointments, setUpcomingAppointments] = useState<Array<{
-    id: string
-    appointment_date: string
-    appointment_time: string
-    pet_name: string
-    service_items: string[]
-    status: string
-    employee_name: string
-    pet_image_url: string | null
-    appointment_duration: number
-  }>>([])
+  const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
   const [upcomingLoading, setUpcomingLoading] = useState(true)
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null)
+  const [selectedAppointment, setSelectedAppointment] = useState<UpcomingAppointment | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
-  const monthOptions = Array.from({ length: 3 }).map((_, index) => {
+  const monthOptions: MonthOption[] = Array.from({ length: 3 }).map((_, index) => {
     const date = subMonths(new Date(), index)
     const firstDayOfMonth = startOfMonth(date)
     return {
