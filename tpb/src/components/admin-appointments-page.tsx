@@ -89,6 +89,8 @@ export function AdminAppointmentsPage() {
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [employees, setEmployees] = useState<any[]>([])
+  const [availableServices, setAvailableServices] = useState<any[]>([])
 
   // Fetch appointments from Supabase
   const fetchAppointments = async () => {
@@ -139,6 +141,16 @@ export function AdminAppointmentsPage() {
       fetchOrders()
     }
   }, [activeTab, fetchOrders])
+
+  // Fetch employees and services when needed
+  useEffect(() => {
+    if (!employees.length) {
+      fetchEmployees()
+    }
+    if (!availableServices.length) {
+      fetchServices()
+    }
+  }, [employees.length, availableServices.length, fetchEmployees, fetchServices])
 
   const handleUpdateAppointment = async (appointmentId: string, status: string) => {
     try {
@@ -261,17 +273,6 @@ export function AdminAppointmentsPage() {
 
     return matchesSearch && matchesStatus
   })
-
-  useEffect(() => {
-    if (open && isEditing) {
-      if (!employees.length) {
-        fetchEmployees()
-      }
-      if (!availableServices.length) {
-        fetchServices()
-      }
-    }
-  }, [open, isEditing, fetchEmployees, fetchServices])
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
