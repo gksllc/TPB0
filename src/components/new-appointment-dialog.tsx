@@ -126,34 +126,7 @@ export function NewAppointmentDialog({
   const [serviceSearchQuery, setServiceSearchQuery] = useState("")
   const [isLoadingTimes, setIsLoadingTimes] = useState(false)
 
-  // Function declarations
-  const fetchCustomers = useCallback(async () => {
-    if (isLoadingCustomers || allCustomers.length > 0) return
-    
-    setIsLoadingCustomers(true)
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          phone
-        `)
-        .eq('role', 'client')
-        .order('first_name', { ascending: true })
-      
-      if (error) throw error
-      setAllCustomers(data || [])
-    } catch (error) {
-      console.error('Error fetching customers:', error)
-      toast.error('Failed to fetch customers')
-    } finally {
-      setIsLoadingCustomers(false)
-    }
-  }, [isLoadingCustomers, allCustomers.length, supabase])
-
+  // Define all functions before useEffect
   const fetchEmployees = useCallback(async () => {
     if (isLoadingEmployees || employees.length > 0) return
     
@@ -206,6 +179,33 @@ export function NewAppointmentDialog({
     }
   }, [isLoadingServices, availableServices.length])
 
+  const fetchCustomers = useCallback(async () => {
+    if (isLoadingCustomers || allCustomers.length > 0) return
+    
+    setIsLoadingCustomers(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          phone
+        `)
+        .eq('role', 'client')
+        .order('first_name', { ascending: true })
+      
+      if (error) throw error
+      setAllCustomers(data || [])
+    } catch (error) {
+      console.error('Error fetching customers:', error)
+      toast.error('Failed to fetch customers')
+    } finally {
+      setIsLoadingCustomers(false)
+    }
+  }, [isLoadingCustomers, allCustomers.length, supabase])
+
   const calculateTotalDuration = useCallback((selectedServiceIds: string[]): number => {
     const selectedServices = availableServices.filter(service => selectedServiceIds.includes(service.id))
     return selectedServices.reduce((total, service) => {
@@ -214,7 +214,7 @@ export function NewAppointmentDialog({
     }, 0)
   }, [availableServices])
 
-  // Effects
+  // Now define useEffect hooks
   useEffect(() => {
     if (open) {
       fetchCustomers()
