@@ -943,7 +943,12 @@ export function ClientAppointmentsPage() {
                     ) : (
                       <>
                         <div className="px-2 py-1 text-xs text-muted-foreground">
-                          Showing services for {selectedPet.name} ({getSizeCategory(selectedPet.size)} size)
+                          {(() => {
+                            const selectedPetDetails = pets.find(pet => pet.name === selectedPet)
+                            return selectedPetDetails 
+                              ? `Showing services for ${selectedPetDetails.name} (${getSizeCategory(selectedPetDetails.size)} size)`
+                              : 'Showing all services'
+                          })()}
                         </div>
                         {filteredServices.map((service) => (
                           <div
