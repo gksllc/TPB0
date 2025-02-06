@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { AuthPage } from "@/components/auth-page"
@@ -11,7 +11,24 @@ export const metadata: Metadata = {
 }
 
 export default async function Page() {
-  const supabase = createServerComponentClient<Database>({ cookies })
+  const cookieStore = cookies()
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: { path: string }) {
+          cookieStore.set(name, value, options)
+        },
+        remove(name: string, options: { path: string }) {
+          cookieStore.set(name, '', options)
+        },
+      },
+    }
+  )
   
   const { data: { session } } = await supabase.auth.getSession()
 

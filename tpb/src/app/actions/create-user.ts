@@ -1,7 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import type { Database } from '@/lib/database.types'
 import { AdminUserAttributes, User } from '@supabase/supabase-js'
 
@@ -23,7 +23,24 @@ export async function createUser(formData: {
   phone?: string
 }) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies })
+    const cookieStore = cookies()
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: { path: string }) {
+            cookieStore.set(name, value, options)
+          },
+          remove(name: string, options: { path: string }) {
+            cookieStore.set(name, '', options)
+          },
+        },
+      }
+    )
 
     // First check if user already exists in Auth
     const { data: users, error: listError } = await supabase.auth.admin.listUsers()
