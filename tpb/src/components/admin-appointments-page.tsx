@@ -92,6 +92,50 @@ export function AdminAppointmentsPage() {
   const [employees, setEmployees] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
 
+  // Declare function types
+  const fetchEmployees: () => Promise<void> = async () => {
+    try {
+      const response = await fetch('/api/clover/employees')
+      if (!response.ok) throw new Error('Failed to fetch employees')
+      const data = await response.json()
+      
+      // Filter for employees with customId 'GROOMER'
+      const groomers = data.data
+        .filter((emp: any) => emp.customId === 'GROOMER')
+        .map((emp: any) => ({
+          id: emp.id,
+          name: emp.name
+        }))
+      
+      setEmployees(groomers)
+    } catch (error) {
+      console.error('Error fetching employees:', error)
+      toast.error('Failed to fetch employees')
+    }
+  }
+
+  const fetchServices: () => Promise<void> = async () => {
+    try {
+      const response = await fetch('/api/clover/items')
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Failed to fetch services:', errorData)
+        throw new Error(errorData.error || 'Failed to fetch services')
+      }
+      const data = await response.json()
+      
+      if (!data.success || !data.data) {
+        console.error('Invalid services response:', data)
+        throw new Error('Invalid services response')
+      }
+      
+      setAvailableServices(data.data)
+    } catch (error) {
+      console.error('Error fetching services:', error)
+      toast.error('Failed to fetch services')
+    }
+  }
+
   // Fetch appointments from Supabase
   const fetchAppointments = async () => {
     try {
@@ -140,7 +184,7 @@ export function AdminAppointmentsPage() {
     if (activeTab === 'orders') {
       fetchOrders()
     }
-  }, [activeTab, fetchOrders])
+  }, [activeTab])
 
   // Fetch employees and services when needed
   useEffect(() => {
@@ -150,7 +194,7 @@ export function AdminAppointmentsPage() {
     if (!availableServices.length) {
       fetchServices()
     }
-  }, [employees.length, availableServices.length, fetchEmployees, fetchServices])
+  }, [employees.length, availableServices.length])
 
   const handleUpdateAppointment = async (appointmentId: string, status: string) => {
     try {
