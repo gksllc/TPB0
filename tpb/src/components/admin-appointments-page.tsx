@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { NewAppointmentDialog } from './new-appointment-dialog'
-import { supabase } from '@/lib/supabase'
+import { createClientComponentClient } from '@supabase/ssr'
 import {
   AlertDialog,
   AlertDialogAction,
