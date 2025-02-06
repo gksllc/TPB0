@@ -74,8 +74,9 @@ export async function GET() {
     }
 
     // Map all items to a consistent format
-    const formattedItems = itemsData.elements
-      .filter((item: { price?: number }) => item.price !== undefined && item.price !== null) // Only include items with prices
+    const elements: CloverItem[] = itemsData.elements
+    const formattedItems = elements
+      .filter((item: CloverItem) => item.price !== undefined && item.price !== null) // Only include items with prices
       .map((item: CloverItem) => ({
         id: item.id,
         name: item.name,
