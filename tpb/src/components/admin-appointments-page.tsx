@@ -24,7 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { NewAppointmentDialog } from './new-appointment-dialog'
-import { createClientComponentClient } from '@supabase/ssr'
+import { createBrowserClient } from '@supabase/ssr'
+import type { Database } from '@/lib/database.types'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,6 +92,16 @@ export function AdminAppointmentsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [employees, setEmployees] = useState<any[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedTab, setSelectedTab] = useState('upcoming')
+  const [isNewAppointmentDialogOpen, setIsNewAppointmentDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [appointmentToEdit, setAppointmentToEdit] = useState<any>(null)
+
+  const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   // Declare function types
   const fetchEmployees: () => Promise<void> = async () => {
