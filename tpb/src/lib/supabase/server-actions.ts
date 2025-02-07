@@ -24,7 +24,7 @@ export async function getServerSupabase() {
         },
         remove(name: string, options: CookieOptions) {
           try {
-            cookieStore.set({ name, value: '', ...options, maxAge: 0 })
+            cookieStore.delete(name)
           } catch (error) {
             // Handle cookie removal error
           }

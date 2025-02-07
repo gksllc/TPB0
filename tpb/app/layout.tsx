@@ -1,15 +1,15 @@
-import React from "react";
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "sonner";
+import React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { Toaster } from "sonner"
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "The Pet Boutique",
   description: "Pet grooming and boutique services",
-};
+}
 
 export default function RootLayout({
   children,
@@ -25,5 +25,5 @@ export default function RootLayout({
         </div>
       </body>
     </html>
-  );
-}
+  )
+} 

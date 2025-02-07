@@ -1,7 +1,5 @@
-'use client'
-
-import dynamicImport from 'next/dynamic'
 import { Suspense } from 'react'
+import dynamicImport from 'next/dynamic'
 
 // Disable static generation for this route
 export const dynamicParams = true
@@ -14,7 +12,7 @@ const AdminAppointmentsPage = dynamicImport(
   { ssr: false }
 )
 
-export default function AdminAppointments() {
+export default function Page() {
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <AdminAppointmentsPage />

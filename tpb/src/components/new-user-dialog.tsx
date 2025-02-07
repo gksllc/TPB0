@@ -11,24 +11,21 @@ import { NewUserForm } from "@/components/new-user-form"
 interface NewUserDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onUpdate: () => void
+  onUpdate?: () => void
 }
 
-export const NewUserDialog = ({
+export function NewUserDialog({
   open,
   onOpenChange,
-  onUpdate,
-}: NewUserDialogProps) => {
+  onUpdate
+}: NewUserDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>New User</DialogTitle>
+          <DialogTitle>Create New User</DialogTitle>
         </DialogHeader>
-        <NewUserForm
-          onClose={() => onOpenChange(false)}
-          onUpdate={onUpdate}
-        />
+        <NewUserForm />
       </DialogContent>
     </Dialog>
   )

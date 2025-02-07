@@ -144,37 +144,37 @@ export function ProfileEditPage() {
     checkPolicies()
   }, [])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedUpdate = useCallback(
-    debounce(async (field: keyof UserProfile, value: string) => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+    (field: keyof UserProfile, value: string) => 
+      debounce(async () => {
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) return
 
-        // Special handling for email updates
-        if (field === 'email') {
-          const { error: emailError } = await supabase.auth.updateUser({
-            email: value,
-          })
-          if (emailError) throw emailError
+          if (field === 'email') {
+            const { error: emailError } = await supabase.auth.updateUser({
+              email: value,
+            })
+            if (emailError) throw emailError
+          }
+
+          const { error } = await supabase
+            .from('users')
+            .update({ [field]: value })
+            .eq('id', user.id)
+
+          if (error) throw error
+
+          if (['phone', 'preferred_communication'].includes(field)) {
+            toast.success(`${field.replace('_', ' ')} updated successfully`)
+          }
+        } catch (error) {
+          console.error(`Error updating ${field}:`, error)
+          toast.error(`Failed to update ${field.replace('_', ' ')}`)
         }
-
-        const { error } = await supabase
-          .from('users')
-          .update({ [field]: value })
-          .eq('id', user.id)
-
-        if (error) throw error
-
-        // Show success message only for immediate feedback fields
-        if (['phone', 'preferred_communication'].includes(field)) {
-          toast.success(`${field.replace('_', ' ')} updated successfully`)
-        }
-      } catch (error) {
-        console.error(`Error updating ${field}:`, error)
-        toast.error(`Failed to update ${field.replace('_', ' ')}`)
-      }
-    }, 1000),
-    [supabase]
+      }, 1000)(),
+    []
   )
 
   const handleFieldUpdate = (field: keyof UserProfile, value: string) => {

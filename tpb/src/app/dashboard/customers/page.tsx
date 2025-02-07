@@ -1,7 +1,8 @@
-'use client'
+import { CustomersPage } from "@/components/customers-page"
 
-import { AppCustomersPage } from "@/components/app-customers-page"
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
-export default function CustomersPage() {
-  return <AppCustomersPage />
+export default function Page() {
+  return <CustomersPage />
 } 
