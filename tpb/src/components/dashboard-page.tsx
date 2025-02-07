@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { BarChart, Users, Calendar, DollarSign, PawPrint } from 'lucide-react'
+import { BarChart, Users, Calendar, DollarSign, PawPrint, RefreshCcw } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
@@ -19,6 +19,7 @@ import {
 import { format, subMonths, startOfMonth, endOfMonth, add, addDays } from 'date-fns'
 import Image from 'next/image'
 import { AppointmentDetailsDialog } from './appointment-details-dialog'
+import { cloverApi } from '@/lib/clover-api'
 
 // Dynamic imports for shadcn components
 const Card = dynamic(() => import('@/components/ui/card').then(mod => mod.Card))
@@ -98,6 +99,7 @@ export function DashboardPage(): JSX.Element {
   })
 
   const fetchTotalCustomers = useCallback(async () => {
+    if (!loading) return
     try {
       const { count, error } = await supabase
         .from('users')
@@ -112,15 +114,18 @@ export function DashboardPage(): JSX.Element {
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [supabase, loading])
 
   const fetchRevenue = useCallback(async () => {
-    setOrdersLoading(true)
+    if (!ordersLoading) return
     try {
       const selectedMonthStart = startOfMonth(selectedMonth).getTime()
       const selectedMonthEnd = endOfMonth(selectedMonth).getTime()
 
-      const response = await fetch(`/api/orders?start=${selectedMonthStart}&end=${selectedMonthEnd}`)
+      const response = await cloverApi.get(`orders?start=${selectedMonthStart}&end=${selectedMonthEnd}`, {
+        cacheDuration: 5 * 60 * 1000, // 5 minutes cache
+        retries: 3
+      })
       const data = await response.json()
       
       if (!data.success) {
@@ -134,10 +139,10 @@ export function DashboardPage(): JSX.Element {
     } finally {
       setOrdersLoading(false)
     }
-  }, [selectedMonth])
+  }, [selectedMonth, ordersLoading])
 
   const fetchTodayAppointments = useCallback(async () => {
-    setAppointmentsLoading(true)
+    if (!appointmentsLoading) return
     try {
       const today = format(new Date(), 'yyyy-MM-dd')
       const { count, error } = await supabase
@@ -153,21 +158,26 @@ export function DashboardPage(): JSX.Element {
     } finally {
       setAppointmentsLoading(false)
     }
-  }, [supabase])
+  }, [supabase, appointmentsLoading])
 
   const fetchUpcomingAppointments = useCallback(async () => {
-    setUpcomingLoading(true)
+    if (!upcomingLoading) return
     try {
-      const response = await fetch('/api/appointments')
-      if (!response.ok) {
-        throw new Error('Failed to fetch appointments')
-      }
-      const data = await response.json()
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .gte('appointment_date', today)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true })
+        .limit(5)
+
+      if (error) throw error
       
-      // Filter for upcoming appointments and sort by date and time
-      const upcoming = data.data
-        .filter((apt: any) => apt.status.toLowerCase() !== 'cancelled')
-        .map((apt: any) => ({
+      // Filter and format appointments
+      const upcoming = (data || [])
+        .filter(apt => apt.status.toLowerCase() !== 'cancelled')
+        .map(apt => ({
           id: apt.id,
           c_order_id: apt.c_order_id,
           appointment_date: apt.appointment_date,
@@ -182,12 +192,6 @@ export function DashboardPage(): JSX.Element {
           appointment_duration: apt.appointment_duration,
           pet_size: apt.pet_size
         }))
-        .sort((a: any, b: any) => {
-          const dateA = new Date(`${a.appointment_date}T${a.appointment_time}`)
-          const dateB = new Date(`${b.appointment_date}T${b.appointment_time}`)
-          return dateA.getTime() - dateB.getTime()
-        })
-        .slice(0, 5) // Show only next 5 appointments
 
       setUpcomingAppointments(upcoming)
     } catch (error) {
@@ -196,23 +200,45 @@ export function DashboardPage(): JSX.Element {
     } finally {
       setUpcomingLoading(false)
     }
-  }, [])
+  }, [supabase, upcomingLoading])
 
+  // Initial data fetch
   useEffect(() => {
-    fetchTotalCustomers()
+    void fetchTotalCustomers()
   }, [fetchTotalCustomers])
 
   useEffect(() => {
-    fetchRevenue()
-  }, [fetchRevenue, selectedMonth])
+    void fetchRevenue()
+  }, [fetchRevenue])
 
   useEffect(() => {
-    fetchTodayAppointments()
+    void fetchTodayAppointments()
   }, [fetchTodayAppointments])
 
   useEffect(() => {
-    fetchUpcomingAppointments()
+    void fetchUpcomingAppointments()
   }, [fetchUpcomingAppointments])
+
+  // Refresh handlers
+  const handleRefresh = useCallback(() => {
+    cloverApi.clearCacheForEndpoint('orders')
+    setLoading(true)
+    setOrdersLoading(true)
+    setAppointmentsLoading(true)
+    setUpcomingLoading(true)
+    void fetchTotalCustomers()
+    void fetchRevenue()
+    void fetchTodayAppointments()
+    void fetchUpcomingAppointments()
+  }, [fetchTotalCustomers, fetchRevenue, fetchTodayAppointments, fetchUpcomingAppointments])
+
+  const handleMonthChange = useCallback((value: string) => {
+    const option = monthOptions.find(opt => opt.value === value)
+    if (option) {
+      setSelectedMonth(option.date)
+      setOrdersLoading(true) // Trigger revenue refresh for new month
+    }
+  }, [monthOptions])
 
   const handleViewCustomers = () => {
     router.push('/dashboard/customers')
@@ -222,6 +248,15 @@ export function DashboardPage(): JSX.Element {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Dashboard</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={loading || ordersLoading || appointmentsLoading || upcomingLoading}
+        >
+          <RefreshCcw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -241,12 +276,7 @@ export function DashboardPage(): JSX.Element {
             <div className="mt-3">
               <Select
                 value={format(selectedMonth, 'yyyy-MM')}
-                onValueChange={(value) => {
-                  const option = monthOptions.find(opt => opt.value === value)
-                  if (option) {
-                    setSelectedMonth(option.date)
-                  }
-                }}
+                onValueChange={handleMonthChange}
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Select month" />

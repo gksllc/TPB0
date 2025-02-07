@@ -1,17 +1,16 @@
 'use server'
 
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import type { Database } from '@/lib/database.types'
 
-const CLOVER_API_BASE_URL = process.env.NEXT_PUBLIC_CLOVER_API_BASE || 'https://api.clover.com'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+const CLOVER_API_BASE_URL = 'https://api.clover.com/v3'
 
 export async function GET() {
   try {
+    const supabase = createRouteHandlerClient<Database>({ cookies })
+
     const { data, error } = await supabase
       .from('appointments')
       .select(`
@@ -47,19 +46,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    const supabase = createRouteHandlerClient<Database>({ cookies })
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -70,7 +60,7 @@ export async function POST(request: Request) {
     console.log('Received appointment data:', body)
 
     // Create the appointment in Clover
-    const cloverResponse = await fetch(`${process.env.CLOVER_API_BASE}/appointments`, {
+    const cloverResponse = await fetch(`${CLOVER_API_BASE_URL}/merchants/${process.env.CLOVER_MERCHANT_ID}/appointments`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.CLOVER_API_TOKEN}`,
@@ -147,19 +137,10 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    const supabase = createRouteHandlerClient<Database>({ cookies })
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError || !session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -193,7 +174,7 @@ export async function PATCH(request: Request) {
     // If there's a Clover order ID, update it in Clover
     if (body.c_order_id) {
       const cloverResponse = await fetch(
-        `${process.env.CLOVER_API_BASE}/appointments/${body.c_order_id}`,
+        `${CLOVER_API_BASE_URL}/merchants/${process.env.CLOVER_MERCHANT_ID}/appointments/${body.c_order_id}`,
         {
           method: 'PUT',
           headers: {

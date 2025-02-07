@@ -25,8 +25,8 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "../components/ui/popover"
-import { cn } from "../lib/utils"
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "../lib/database.types"
 import { toast } from "sonner"
