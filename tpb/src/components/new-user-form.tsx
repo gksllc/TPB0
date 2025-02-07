@@ -8,20 +8,27 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { createBrowserClient } from "@supabase/ssr"
 import type { Database } from "@/lib/database.types"
-import { createUser } from "../../../app/actions/create-user"
+import { createUser } from "@/app/actions/create-user"
 import { formatPhoneNumber } from "@/lib/utils"
 
 export function NewUserForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setIsLoading(true)
 
     try {
       const formData = new FormData(event.currentTarget)
-      const result = await createUser(formData)
+      const userData = {
+        email: formData.get('email') as string,
+        password: formData.get('password') as string,
+        first_name: formData.get('first_name') as string,
+        last_name: formData.get('last_name') as string,
+        phone: formData.get('phone') as string || undefined
+      }
+      const result = await createUser(userData)
 
       if (!result.success) {
         toast.error('Failed to create user')
@@ -39,7 +46,7 @@ export function NewUserForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4">
+    <form onSubmit={handleSubmit} className="grid gap-4">
       <div className="grid gap-2">
         <Label htmlFor="email">Email</Label>
         <Input

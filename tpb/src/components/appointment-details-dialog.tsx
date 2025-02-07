@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { format, isSameDay, isAfter, addDays } from 'date-fns'
 import { PawPrint, Plus, Check, ChevronsUpDown } from 'lucide-react'
 import Image from 'next/image'
@@ -146,63 +146,65 @@ export function AppointmentDetailsDialog({
     }, 0)
   }, [availableServices])
 
-  const debouncedFetchTimes = useCallback(
-    debounce(async (selectedDate: string, selectedEmployeeId: string, selectedServices: string[]) => {
-      if (!selectedDate || !selectedEmployeeId || !selectedServices.length) return
+  const fetchTimes = useCallback(async (selectedDate: string, selectedEmployeeId: string, selectedServices: string[]) => {
+    if (!selectedDate || !selectedEmployeeId || !selectedServices.length) return
 
-      setIsLoadingTimes(true)
-      try {
-        const totalDuration = calculateTotalDuration(selectedServices)
-        const formattedDate = format(new Date(selectedDate), 'yyyy-MM-dd')
+    setIsLoadingTimes(true)
+    try {
+      const totalDuration = calculateTotalDuration(selectedServices)
+      const formattedDate = format(new Date(selectedDate), 'yyyy-MM-dd')
 
-        const response = await fetch(
-          `/api/clover/availability?date=${formattedDate}&groomerId=${selectedEmployeeId}&duration=${totalDuration}`
-        )
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch availability')
-        }
-        
-        const data = await response.json()
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch availability')
-        }
-
-        let availableSlots = data.data.availableTimeSlots || []
-
-        // Filter out past times if it's today
-        if (isSameDay(new Date(selectedDate), new Date())) {
-          const now = new Date()
-          const bufferTime = new Date(now.getTime() + 30 * 60000) // 30 minutes buffer
-          
-          availableSlots = availableSlots.filter((timeSlot: string) => {
-            const [time, period] = timeSlot.split(' ')
-            const [hours, minutes] = time.split(':').map(Number)
-            let adjustedHours = hours
-            
-            if (period === 'PM' && hours !== 12) {
-              adjustedHours += 12
-            } else if (period === 'AM' && hours === 12) {
-              adjustedHours = 0
-            }
-
-            const slotDate = new Date(selectedDate)
-            slotDate.setHours(adjustedHours, minutes, 0, 0)
-            
-            return isAfter(slotDate, bufferTime)
-          })
-        }
-
-        setAvailableTimes(availableSlots)
-      } catch (error) {
-        console.error('Error fetching availability:', error)
-        setError(error instanceof Error ? error.message : 'Failed to fetch available times')
-      } finally {
-        setIsLoadingTimes(false)
+      const response = await fetch(
+        `/api/clover/availability?date=${formattedDate}&groomerId=${selectedEmployeeId}&duration=${totalDuration}`
+      )
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch availability')
       }
-    }, 500),
-    [calculateTotalDuration]
+      
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch availability')
+      }
+
+      let availableSlots = data.data.availableTimeSlots || []
+
+      // Filter out past times if it's today
+      if (isSameDay(new Date(selectedDate), new Date())) {
+        const now = new Date()
+        const bufferTime = new Date(now.getTime() + 30 * 60000) // 30 minutes buffer
+        
+        availableSlots = availableSlots.filter((timeSlot: string) => {
+          const [time, period] = timeSlot.split(' ')
+          const [hours, minutes] = time.split(':').map(Number)
+          let adjustedHours = hours
+          
+          if (period === 'PM' && hours !== 12) {
+            adjustedHours += 12
+          } else if (period === 'AM' && hours === 12) {
+            adjustedHours = 0
+          }
+
+          const slotDate = new Date(selectedDate)
+          slotDate.setHours(adjustedHours, minutes, 0, 0)
+          
+          return isAfter(slotDate, bufferTime)
+        })
+      }
+
+      setAvailableTimes(availableSlots)
+    } catch (error) {
+      console.error('Error fetching availability:', error)
+      setError(error instanceof Error ? error.message : 'Failed to fetch available times')
+    } finally {
+      setIsLoadingTimes(false)
+    }
+  }, [calculateTotalDuration, setAvailableTimes, setError, setIsLoadingTimes])
+
+  const debouncedFetchTimes = useMemo(
+    () => debounce(fetchTimes, 500),
+    [fetchTimes]
   )
 
   useEffect(() => {
