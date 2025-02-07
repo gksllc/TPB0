@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { LogoutButton } from '@/components/logout-button'
 import { cn } from '@/lib/utils'
 
 export function EmployeeNav() {
@@ -36,6 +37,11 @@ export function EmployeeNav() {
                 Profile
               </Button>
             </Link>
+          </div>
+        </div>
+        <div className="px-3 py-2">
+          <div className="space-y-1">
+            <LogoutButton />
           </div>
         </div>
       </div>

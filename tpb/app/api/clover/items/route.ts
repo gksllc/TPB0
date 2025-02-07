@@ -31,78 +31,95 @@ interface CloverResponse {
   elements: Item[]
 }
 
-// Use the correct API base URL for Clover API v3
 const CLOVER_API_BASE_URL = 'https://api.clover.com/v3'
 
 export async function GET() {
   try {
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    )
+    const apiToken = process.env.CLOVER_API_TOKEN
+    const merchantId = process.env.CLOVER_MERCHANT_ID
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+    if (!apiToken || !merchantId) {
+      console.error('Missing Clover credentials:', { 
+        hasToken: !!apiToken, 
+        hasMerchantId: !!merchantId 
+      })
+      return NextResponse.json({
+        success: false,
+        error: 'Clover API configuration error'
+      }, { status: 500 })
     }
 
-    // Get user role
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+    // Fetch all items from the specific merchant
+    const itemsUrl = new URL(`${CLOVER_API_BASE_URL}/merchants/${merchantId}/items`)
+    itemsUrl.searchParams.append('expand', 'categories,price,tax')
+    itemsUrl.searchParams.append('limit', '1000')
+    itemsUrl.searchParams.append('filter', 'hidden=false')
+    itemsUrl.searchParams.append('orderBy', 'name ASC')
+    
+    console.log('Fetching all items with URL:', itemsUrl.toString().replace(apiToken, 'REDACTED'))
 
-    if (userError) {
-      console.error('Error fetching user role:', userError)
-      return NextResponse.json(
-        { error: 'Failed to verify user role' },
-        { status: 500 }
-      )
-    }
-
-    // Only allow admin and client roles
-    if (!['admin', 'client'].includes(userData.role)) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      )
-    }
-
-    // Fetch items from Clover
-    const response = await fetch(`${process.env.CLOVER_API_BASE}/items`, {
+    const itemsResponse = await fetch(itemsUrl.toString(), {
       headers: {
-        'Authorization': `Bearer ${process.env.CLOVER_API_TOKEN}`,
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json'
       },
+      cache: 'no-store' // Disable caching to always get fresh data
     })
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch items from Clover')
+    if (!itemsResponse.ok) {
+      const errorText = await itemsResponse.text()
+      console.error('Clover API error response:', {
+        status: itemsResponse.status,
+        statusText: itemsResponse.statusText,
+        body: errorText
+      })
+      throw new Error(`Failed to fetch items: ${errorText}`)
     }
 
-    const data = await response.json()
+    const itemsData: CloverResponse = await itemsResponse.json()
+    console.log('Found items:', {
+      total: itemsData.elements?.length || 0,
+      sample: itemsData.elements?.[0]
+    })
+
+    if (!itemsData.elements || !Array.isArray(itemsData.elements)) {
+      console.error('Invalid response format:', itemsData)
+      throw new Error('Invalid response format from Clover API')
+    }
+
+    // Map all items to a consistent format
+    const formattedItems = itemsData.elements
+      .filter((item: Item) => item.price !== undefined && item.price !== null)
+      .map((item: Item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price!,
+        description: item.description || '',
+        categories: (item.categories?.elements || []).map((cat) => cat.name),
+        hidden: item.hidden || false,
+        available: !item.hidden,
+        taxRates: item.tax ? [item.tax] : []
+      }))
+      .sort((a: FormattedItem, b: FormattedItem) => a.name.localeCompare(b.name))
+
+    console.log('Formatted items:', {
+      count: formattedItems.length,
+      sample: formattedItems[0]
+    })
 
     return NextResponse.json({
       success: true,
-      data: data.elements || [],
+      data: formattedItems
     })
-  } catch (error) {
-    console.error('Error fetching items:', error)
-    return NextResponse.json(
-      { 
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch items'
-      },
-      { status: 500 }
-    )
+  } catch (error: any) {
+    console.error('Error fetching Clover items:', {
+      message: error.message,
+      stack: error.stack
+    })
+    return NextResponse.json({
+      success: false,
+      error: error.message || 'Failed to fetch items'
+    }, { status: 500 })
   }
 } 
