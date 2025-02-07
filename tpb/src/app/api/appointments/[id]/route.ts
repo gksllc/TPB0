@@ -1,21 +1,34 @@
-import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 import type { Database } from '@/lib/database.types'
 
 export const runtime = 'edge'
 
+type RouteContext = {
+  params: {
+    id: string
+  }
+}
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: Record<string, string | string[]> }
-): Promise<Response> {
+  context: RouteContext
+) {
   try {
-    const supabase = createClient<Database>(
+    const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {
+            // Handle cookie setting if needed
+          },
+          remove(name: string, options: any) {
+            // Handle cookie removal if needed
+          }
         }
       }
     )
@@ -23,19 +36,19 @@ export async function GET(
     const { data: appointment, error } = await supabase
       .from('appointments')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', context.params.id)
       .single()
 
     if (error) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: error.message },
         { status: 500 }
       )
     }
 
-    return Response.json({ success: true, data: appointment })
+    return NextResponse.json({ success: true, data: appointment })
   } catch (error) {
-    return Response.json(
+    return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to fetch appointment' },
       { status: 500 }
     )
@@ -44,18 +57,25 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Record<string, string | string[]> }
-): Promise<Response> {
+  context: RouteContext
+) {
   try {
     const body = await request.json()
     
-    const supabase = createClient<Database>(
+    const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {
+            // Handle cookie setting if needed
+          },
+          remove(name: string, options: any) {
+            // Handle cookie removal if needed
+          }
         }
       }
     )
@@ -63,20 +83,20 @@ export async function PATCH(
     const { data: appointment, error } = await supabase
       .from('appointments')
       .update(body)
-      .eq('id', params.id)
+      .eq('id', context.params.id)
       .select()
       .single()
 
     if (error) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: error.message },
         { status: 500 }
       )
     }
 
-    return Response.json({ success: true, data: appointment })
+    return NextResponse.json({ success: true, data: appointment })
   } catch (error) {
-    return Response.json(
+    return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to update appointment' },
       { status: 500 }
     )
@@ -85,16 +105,23 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Record<string, string | string[]> }
-): Promise<Response> {
+  context: RouteContext
+) {
   try {
-    const supabase = createClient<Database>(
+    const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {
+            // Handle cookie setting if needed
+          },
+          remove(name: string, options: any) {
+            // Handle cookie removal if needed
+          }
         }
       }
     )
@@ -102,18 +129,18 @@ export async function DELETE(
     const { error } = await supabase
       .from('appointments')
       .delete()
-      .eq('id', params.id)
+      .eq('id', context.params.id)
 
     if (error) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, error: error.message },
         { status: 500 }
       )
     }
 
-    return Response.json({ success: true })
+    return NextResponse.json({ success: true })
   } catch (error) {
-    return Response.json(
+    return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Failed to delete appointment' },
       { status: 500 }
     )
