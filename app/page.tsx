@@ -1,9 +1,7 @@
 import { Metadata } from "next"
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { AuthPage } from "@/components/auth-page"
-import type { Database } from "@/lib/database.types"
+import { getAuthSession } from "./actions/auth"
 
 export const metadata: Metadata = {
   title: "Sign In - The Pet Bodega",
@@ -16,66 +14,24 @@ export const revalidate = 0
 
 export default async function Page() {
   try {
-    const cookieStore = cookies()
-    
-    const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value
-          },
-          set(name: string, value: string, options: any) {
-            try {
-              cookieStore.set({ name, value, ...options })
-            } catch (error) {
-              console.error('Error setting cookie:', error)
-            }
-          },
-          remove(name: string, options: any) {
-            try {
-              cookieStore.delete({ name, ...options })
-            } catch (error) {
-              console.error('Error removing cookie:', error)
-            }
-          }
-        }
-      }
-    )
-    
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    
-    if (sessionError) {
-      console.error('Session error:', sessionError)
+    const { session, userData, error } = await getAuthSession()
+
+    if (error) {
+      console.error('Auth error:', error)
       return <AuthPage />
     }
 
     // If user is already logged in, redirect them based on their role
-    if (session) {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', session.user.id)
-        .single()
-
-      if (userError) {
-        console.error('User data error:', userError)
-        return <AuthPage />
-      }
-
-      if (userData) {
-        // Make sure these routes exist in your app directory structure
-        switch (userData.role) {
-          case 'admin':
-            redirect('/dashboard')
-          case 'client':
-            redirect('/client/dashboard') // Updated path
-          case 'employee':
-            redirect('/employee/dashboard')
-          default:
-            redirect('/client/dashboard') // Updated default path
-        }
+    if (session && userData) {
+      switch (userData.role) {
+        case 'admin':
+          redirect('/dashboard/admin-appointments')
+        case 'client':
+          redirect('/client/dashboard')
+        case 'employee':
+          redirect('/employee/dashboard')
+        default:
+          redirect('/client/dashboard')
       }
     }
 

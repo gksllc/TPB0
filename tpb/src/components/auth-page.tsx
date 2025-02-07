@@ -103,16 +103,16 @@ export function AuthPage({ defaultTab = 'signin', defaultEmail = '' }: AuthPageP
       // Redirect based on role
       switch (existingUser.role) {
         case 'admin':
-          router.push('/dashboard')
+          router.push('/dashboard/admin-appointments')
           break
         case 'client':
-          router.push('/client')
+          router.push('/client/dashboard')
           break
         case 'employee':
           router.push('/employee/dashboard')
           break
         default:
-          router.push('/client')
+          router.push('/client/dashboard')
       }
 
     } catch (error) {

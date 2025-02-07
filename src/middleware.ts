@@ -1,3 +1,5 @@
+'use client'
+
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -60,30 +62,36 @@ export async function middleware(req: NextRequest) {
 
     const path = req.nextUrl.pathname
 
-    // Updated role-based route protection
-    const roleRoutes = {
-      '/dashboard': ['admin'],
-      '/employee': ['employee'],
-      '/client': ['client'],
+    // Role-based route protection
+    if (path.startsWith('/dashboard') && userData.role !== 'admin') {
+      return NextResponse.redirect(new URL(getHomePageByRole(userData.role), req.url))
     }
 
-    // Check if user has permission for the route
-    for (const [route, roles] of Object.entries(roleRoutes)) {
-      if (path.startsWith(route) && !roles.includes(userData.role)) {
-        // Redirect to appropriate homepage based on role
-        const redirectPath = 
-          userData.role === 'admin' ? '/dashboard/admin-appointments' :
-          userData.role === 'client' ? '/client/dashboard' :
-          '/employee/dashboard'
-        
-        return NextResponse.redirect(new URL(redirectPath, req.url))
-      }
+    if (path.startsWith('/client') && userData.role !== 'client') {
+      return NextResponse.redirect(new URL(getHomePageByRole(userData.role), req.url))
+    }
+
+    if (path.startsWith('/employee') && userData.role !== 'employee') {
+      return NextResponse.redirect(new URL(getHomePageByRole(userData.role), req.url))
     }
 
     return res
   } catch (error) {
     console.error('Middleware error:', error)
     return NextResponse.redirect(new URL('/', req.url))
+  }
+}
+
+function getHomePageByRole(role: string): string {
+  switch (role) {
+    case 'admin':
+      return '/dashboard/admin-appointments'
+    case 'client':
+      return '/client/dashboard'
+    case 'employee':
+      return '/employee/dashboard'
+    default:
+      return '/'
   }
 }
 

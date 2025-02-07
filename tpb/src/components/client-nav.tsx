@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-export function DashboardNav() {
+export function ClientNav() {
   const pathname = usePathname()
 
   return (
@@ -14,48 +14,37 @@ export function DashboardNav() {
         <div className="px-3 py-2">
           <h2 className="mb-2 px-4 text-lg font-semibold">Menu</h2>
           <div className="space-y-1">
-            <Link href="/dashboard/admin-appointments">
+            <Link href="/client/dashboard">
               <Button
                 variant="ghost"
                 className={cn(
                   'w-full justify-start',
-                  pathname === '/dashboard/admin-appointments' && 'bg-slate-100'
+                  pathname === '/client/dashboard' && 'bg-slate-100'
                 )}
               >
                 Appointments
               </Button>
             </Link>
-            <Link href="/dashboard/customers">
+            <Link href="/client/pets">
               <Button
                 variant="ghost"
                 className={cn(
                   'w-full justify-start',
-                  pathname === '/dashboard/customers' && 'bg-slate-100'
+                  pathname === '/client/pets' && 'bg-slate-100'
                 )}
               >
-                Customers
+                My Pets
               </Button>
             </Link>
-            <Link href="/dashboard/staff">
+            <Link href="/client/profile">
               <Button
                 variant="ghost"
                 className={cn(
                   'w-full justify-start',
-                  pathname === '/dashboard/staff' && 'bg-slate-100'
+                  pathname === '/client/profile' && 'bg-slate-100'
                 )}
               >
-                Staff
-              </Button>
-            </Link>
-            <Link href="/dashboard/settings">
-              <Button
-                variant="ghost"
-                className={cn(
-                  'w-full justify-start',
-                  pathname === '/dashboard/settings' && 'bg-slate-100'
-                )}
-              >
-                Settings
+                Profile
               </Button>
             </Link>
           </div>
