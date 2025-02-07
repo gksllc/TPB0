@@ -21,12 +21,7 @@ export async function middleware(req: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
-          res.cookies.set({
-            name,
-            value: '',
-            ...options,
-            maxAge: 0
-          })
+          res.cookies.delete(name)
         },
       },
     }

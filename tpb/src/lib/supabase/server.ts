@@ -17,18 +17,10 @@ export async function createServerClient() {
           return cookieStore.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookieStore.set({ name, value, ...options })
-          } catch (error) {
-            // Handle cookie setting error
-          }
+          cookieStore.set(name, value, options)
         },
         remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.delete(name)
-          } catch (error) {
-            // Handle cookie removal error
-          }
+          cookieStore.delete(name)
         }
       }
     }

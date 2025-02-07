@@ -1,6 +1,4 @@
-'use client'
-
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { format, addDays } from 'date-fns'
 import { Calendar, Search, Plus, Edit2, Trash2, PawPrint, RefreshCcw, AlertCircle } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -40,58 +38,44 @@ import Image from 'next/image'
 import { AppointmentDetailsDialog } from './appointment-details-dialog'
 import { cloverApi } from '@/lib/clover-api'
 
-// Type definitions
-type ServiceItem = {
-  name: string;
-  price: number;
+interface Employee {
+  id: string
+  name: string
+  role?: string
+  nickname?: string
+  customId?: string
 }
 
-type Appointment = {
-  id: string;
-  c_order_id?: string;
-  user_id?: string;
-  appointment_date: string;
-  appointment_time: string;
-  pet_name: string;
-  pet_id: string;
-  service_items: string[];
-  status: string;
-  employee_name: string;
-  employee_id: string;
-  pet_image_url: string | null;
-  appointment_duration: number;
-  pet_size?: string;
-  service_type?: string;
+interface Service {
+  id: string
+  name: string
+  price: number
+  description?: string
 }
 
-interface ApiAppointment {
-  id: string;
-  customer_id: string;
-  pet_id: string;
-  employee_id: string;
-  appointment_date: string;
-  appointment_time: string;
-  appointment_duration: number;
-  service_items: any[];
-  status: string;
-  notes?: string;
-  employee_name?: string;
-  pet_name?: string;
-  customer_name?: string;
-  pet_image_url?: string;
+interface Appointment {
+  id: string
+  c_order_id?: string
+  user_id: string
+  pet_id: string
+  pet_name: string
+  service_type?: string
+  service_items: string[] | string
+  status: string
+  appointment_date: string
+  appointment_time: string
+  employee_id: string
+  employee_name: string
+  appointment_duration: number
+  pet_image_url?: string | null
+  pet_size?: string
 }
 
-interface ApiResponse {
-  success: boolean;
-  data: ApiAppointment[];
-  error?: string;
-}
-
-type Order = {
+interface Order {
   id: string
   total: number
-  state: string
   createdTime: string
+  state: string
   employee: {
     id: string
     name: string
@@ -103,19 +87,11 @@ type Order = {
   }>
 }
 
-interface Employee {
-  id: string
-  name: string
-  role?: string
-  nickname?: string
-  customId?: string
-}
-
 export function AdminAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [employees, setEmployees] = useState<Employee[]>([])
-  const [availableServices, setAvailableServices] = useState<ServiceItem[]>([])
+  const [availableServices, setAvailableServices] = useState<Service[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -152,13 +128,73 @@ export function AdminAppointmentsPage() {
       const matchesStatus = statusFilter === 'all' || 
         (appointment.status || '').toLowerCase() === statusFilter.toLowerCase()
 
-      return matchesSearch && matchesStatus
+      const matches = matchesSearch && matchesStatus
+      console.log('Appointment filtering result:', { 
+        id: appointment.id, 
+        matchesSearch, 
+        matchesStatus, 
+        matches 
+      })
+
+      return matches
     })
   }, [appointments, searchQuery, statusFilter])
 
-  const fetchAppointments = async () => {
-    console.log('Fetching appointments...')
+  // Handle appointment status update
+  const handleUpdateAppointment = async (appointmentId: string, status: string) => {
     try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status })
+        .eq('id', appointmentId)
+
+      if (error) throw error
+
+      // Refresh appointments after update
+      await fetchAppointments()
+      toast.success('Appointment status updated')
+    } catch (error) {
+      console.error('Error updating appointment:', error)
+      toast.error('Failed to update appointment status')
+    }
+  }
+
+  // Handle appointment deletion
+  const handleDeleteClick = (appointmentId: string) => {
+    setDeleteAppointmentId(appointmentId)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteAppointmentId) return
+
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', deleteAppointmentId)
+
+      if (error) throw error
+
+      // Refresh appointments after deletion
+      await fetchAppointments()
+      toast.success('Appointment deleted')
+    } catch (error) {
+      console.error('Error deleting appointment:', error)
+      toast.error('Failed to delete appointment')
+    } finally {
+      setDeleteAppointmentId(null)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteAppointmentId(null)
+  }
+
+  const fetchAppointments = async () => {
+    setIsLoading(true) // Set loading state at the start
+    try {
+      console.log('Fetching appointments...') // Debug log
+      
       const { data, error } = await supabase
         .from('appointments')
         .select(`
@@ -191,7 +227,7 @@ export function AdminAppointmentsPage() {
       }
 
       const transformedAppointments = data.map(rawData => {
-        console.log('Processing appointment:', rawData)
+        console.log('Processing appointment:', rawData) // Debug individual appointment
 
         let parsedServiceItems = []
         try {
@@ -200,6 +236,7 @@ export function AdminAppointmentsPage() {
             : rawData.service_items || []
         } catch (e) {
           console.error('Error parsing service_items:', e)
+          // If parsing fails, try to use the raw value
           parsedServiceItems = Array.isArray(rawData.service_items) 
             ? rawData.service_items 
             : [String(rawData.service_items)]
@@ -223,7 +260,7 @@ export function AdminAppointmentsPage() {
           pet_size: rawData.pets?.size || rawData.pet_size
         }
 
-        console.log('Transformed appointment:', appointment)
+        console.log('Transformed appointment:', appointment) // Debug transformed appointment
         return appointment
       })
 
@@ -235,57 +272,34 @@ export function AdminAppointmentsPage() {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch appointments'
       toast.error(errorMessage)
       setError(errorMessage)
-      setAppointments([])
-    }
-  }
-
-  // Handle appointment status update
-  const handleUpdateAppointment = async (appointmentId: string, status: string) => {
-    try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ status })
-        .eq('id', appointmentId)
-
-      if (error) throw error
-
-      await fetchAppointments()
-      toast.success('Appointment status updated')
-    } catch (error) {
-      console.error('Error updating appointment:', error)
-      toast.error('Failed to update appointment status')
-    }
-  }
-
-  // Handle appointment deletion
-  const handleDeleteClick = (appointmentId: string) => {
-    setDeleteAppointmentId(appointmentId)
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteAppointmentId) return
-
-    try {
-      const { error } = await supabase
-        .from('appointments')
-        .delete()
-        .eq('id', deleteAppointmentId)
-
-      if (error) throw error
-
-      await fetchAppointments()
-      toast.success('Appointment deleted')
-    } catch (error) {
-      console.error('Error deleting appointment:', error)
-      toast.error('Failed to delete appointment')
+      setAppointments([]) // Clear appointments on error
     } finally {
-      setDeleteAppointmentId(null)
+      setIsLoading(false) // Always set loading to false when done
     }
   }
 
-  const handleDeleteCancel = () => {
-    setDeleteAppointmentId(null)
-  }
+  // Initial data fetch
+  useEffect(() => {
+    console.log('Initial fetch triggered') // Debug initial fetch
+    void fetchAppointments()
+  }, [])
+
+  // Debug appointments state changes
+  useEffect(() => {
+    console.log('Appointments state updated:', appointments)
+  }, [appointments])
+
+  // Debug filtered appointments
+  useEffect(() => {
+    console.log('Filtered appointments:', filteredAppointments)
+  }, [filteredAppointments])
+
+  // Fetch orders when orders tab is selected
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      void fetchOrders()
+    }
+  }, [activeTab, fetchOrders])
 
   // Fetch orders from Clover
   const fetchOrders = useCallback(async () => {
@@ -307,20 +321,7 @@ export function AdminAppointmentsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
-
-  // Initial data fetch
-  useEffect(() => {
-    console.log('Initial fetch triggered')
-    void fetchAppointments()
-  }, [])
-
-  // Fetch orders when orders tab is selected
-  useEffect(() => {
-    if (activeTab === 'orders') {
-      void fetchOrders()
-    }
-  }, [activeTab, fetchOrders])
+  }, []) // Empty dependency array since it doesn't depend on any props or state
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -356,7 +357,7 @@ export function AdminAppointmentsPage() {
                 placeholder="Search appointments..."
                 className="pl-10 pr-4"
                 value={searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <Select
@@ -467,7 +468,7 @@ export function AdminAppointmentsPage() {
                         <TableCell>
                           <Select
                             value={appointment.status.toLowerCase()}
-                            onValueChange={(value: string) => handleUpdateAppointment(appointment.id, value)}
+                            onValueChange={(value) => handleUpdateAppointment(appointment.id, value)}
                           >
                             <SelectTrigger className="w-[130px]">
                               <SelectValue />

@@ -27,18 +27,10 @@ export default async function Page() {
             return cookieStore.get(name)?.value
           },
           set(name: string, value: string, options: any) {
-            try {
-              cookieStore.set({ name, value, ...options })
-            } catch (error) {
-              console.error('Error setting cookie:', error)
-            }
+            cookieStore.set(name, value, options)
           },
           remove(name: string, options: any) {
-            try {
-              cookieStore.delete({ name, ...options })
-            } catch (error) {
-              console.error('Error removing cookie:', error)
-            }
+            cookieStore.delete(name)
           }
         }
       }
