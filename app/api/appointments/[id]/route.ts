@@ -4,9 +4,15 @@ import type { Database } from '@/lib/database.types'
 
 export const runtime = 'edge'
 
+type RouteContext = {
+  params: {
+    id: string
+  }
+}
+
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
     const supabase = createClient<Database>(
@@ -23,7 +29,7 @@ export async function GET(
     const { data: appointment, error } = await supabase
       .from('appointments')
       .select('*')
-      .eq('id', context.params.id)
+      .eq('id', params.id)
       .single()
 
     if (error) {
@@ -44,7 +50,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
     const body = await request.json()
@@ -63,7 +69,7 @@ export async function PATCH(
     const { data: appointment, error } = await supabase
       .from('appointments')
       .update(body)
-      .eq('id', context.params.id)
+      .eq('id', params.id)
       .select()
       .single()
 
@@ -85,7 +91,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: RouteContext
 ) {
   try {
     const supabase = createClient<Database>(
@@ -102,7 +108,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('appointments')
       .delete()
-      .eq('id', context.params.id)
+      .eq('id', params.id)
 
     if (error) {
       return NextResponse.json(
