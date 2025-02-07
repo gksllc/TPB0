@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { format, addDays } from 'date-fns'
 import { Calendar, Search, Plus, Edit2, Trash2, PawPrint } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import Image from 'next/image'
 import { AppointmentDetailsDialog } from './appointment-details-dialog'
+import { cloverApi } from '@/lib/clover-api'
 
 type Appointment = {
   id: string
@@ -79,6 +80,14 @@ type Order = {
   }
 }
 
+interface Employee {
+  id: string
+  name: string
+  role?: string
+  nickname?: string
+  customId?: string
+}
+
 export function AdminAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -90,91 +99,128 @@ export function AdminAppointmentsPage() {
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null)
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-  const [employees, setEmployees] = useState<any[]>([])
+  const [employees, setEmployees] = useState<Employee[]>([])
   const [availableServices, setAvailableServices] = useState<any[]>([])
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedTab, setSelectedTab] = useState('upcoming')
   const [isNewAppointmentDialogOpen, setIsNewAppointmentDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [appointmentToEdit, setAppointmentToEdit] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // Declare function types
-  const fetchEmployees: () => Promise<void> = async () => {
+  useEffect(() => {
+    void fetchData()
+  }, [])
+
+  const fetchData = async () => {
+    setIsLoading(true)
     try {
-      const response = await fetch('/api/clover/employees')
-      if (!response.ok) throw new Error('Failed to fetch employees')
-      const data = await response.json()
+      await Promise.all([
+        fetchAppointments(),
+        fetchEmployees()
+      ])
+    } catch (error) {
+      console.error('Error fetching data:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data'
+      setError(errorMessage)
+      toast.error(errorMessage)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchAppointments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true })
+
+      if (error) throw error
+
+      setAppointments(data)
+    } catch (error) {
+      console.error('Error fetching appointments:', error)
+      throw error
+    }
+  }
+
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const data = await cloverApi.get('employees', {
+        cacheDuration: 5 * 60 * 1000, // 5 minutes cache
+        retries: 3
+      })
       
-      // Filter for employees with customId 'GROOMER'
-      const groomers = data.data
-        .filter((emp: any) => emp.customId === 'GROOMER')
-        .map((emp: any) => ({
+      if (!data.success || !data.data) {
+        throw new Error(data.error || 'Invalid employee data received')
+      }
+
+      // Format employees data
+      const formattedEmployees = data.data
+        .filter((emp: Employee) => emp.customId === 'GROOMER')
+        .map((emp: Employee) => ({
           id: emp.id,
-          name: emp.name
+          name: emp.name,
+          role: emp.role || 'Groomer',
+          nickname: emp.nickname
         }))
-      
-      setEmployees(groomers)
+
+      setEmployees(formattedEmployees)
     } catch (error) {
       console.error('Error fetching employees:', error)
       toast.error('Failed to fetch employees')
     }
-  }
+  }, [])
 
-  const fetchServices: () => Promise<void> = async () => {
+  const fetchServices = useCallback(async () => {
     try {
-      const response = await fetch('/api/clover/items')
-      if (!response.ok) {
-        const errorData = await response.json()
-        console.error('Failed to fetch services:', errorData)
-        throw new Error(errorData.error || 'Failed to fetch services')
-      }
-      const data = await response.json()
+      const data = await cloverApi.get('items', {
+        cacheDuration: 5 * 60 * 1000, // 5 minutes cache
+        retries: 3
+      })
       
       if (!data.success || !data.data) {
-        console.error('Invalid services response:', data)
-        throw new Error('Invalid services response')
+        throw new Error(data.error || 'Invalid service data received')
       }
-      
-      setAvailableServices(data.data)
+
+      const formattedServices = data.data.map((service: any) => ({
+        id: service.id,
+        name: service.name,
+        price: service.price || 0,
+        description: service.description || ''
+      }))
+
+      setAvailableServices(formattedServices)
     } catch (error) {
       console.error('Error fetching services:', error)
       toast.error('Failed to fetch services')
     }
-  }
+  }, [])
 
-  // Fetch appointments from Supabase
-  const fetchAppointments = async () => {
-    try {
-      const response = await fetch('/api/appointments')
-      if (!response.ok) {
-        throw new Error('Failed to fetch appointments')
-      }
-      const data = await response.json()
-      setAppointments(data.data)
-    } catch (error) {
-      console.error('Error fetching appointments:', error)
-      toast.error('Failed to fetch appointments')
-    }
-  }
-
-  // Fetch orders from Clover
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
       
-      const response = await fetch(
-        `/api/orders?start=${thirtyDaysAgo.getTime()}&end=${Date.now()}`
+      const data = await cloverApi.get(
+        `orders?start=${thirtyDaysAgo.getTime()}&end=${Date.now()}`,
+        {
+          cacheDuration: 5 * 60 * 1000, // 5 minutes cache
+          retries: 3
+        }
       )
-      if (!response.ok) {
-        throw new Error('Failed to fetch orders')
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch orders')
       }
-      const data = await response.json()
+
       setOrders(data.data || [])
     } catch (error) {
       console.error('Error fetching orders:', error)
@@ -182,30 +228,7 @@ export function AdminAppointmentsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // Only fetch appointments initially
-  useEffect(() => {
-    fetchAppointments()
-    setIsLoading(false)
   }, [])
-
-  // Fetch orders only when orders tab is selected
-  useEffect(() => {
-    if (activeTab === 'orders') {
-      fetchOrders()
-    }
-  }, [activeTab])
-
-  // Fetch employees and services when needed
-  useEffect(() => {
-    if (!employees.length) {
-      fetchEmployees()
-    }
-    if (!availableServices.length) {
-      fetchServices()
-    }
-  }, [employees.length, availableServices.length])
 
   const handleUpdateAppointment = async (appointmentId: string, status: string) => {
     try {
@@ -328,6 +351,11 @@ export function AdminAppointmentsPage() {
 
     return matchesSearch && matchesStatus
   })
+
+  const handleRefresh = async () => {
+    setError(null)
+    await fetchData()
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
