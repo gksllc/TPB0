@@ -4,16 +4,16 @@ import type { Database } from '@/lib/database.types'
 
 export const runtime = 'edge'
 
-type RouteContext = {
+interface Context {
   params: {
     id: string
   }
 }
 
 export async function GET(
-  request: NextRequest,
-  { params }: RouteContext
-) {
+  _req: NextRequest,
+  context: Context
+): Promise<NextResponse> {
   try {
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +29,7 @@ export async function GET(
     const { data: appointment, error } = await supabase
       .from('appointments')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', context.params.id)
       .single()
 
     if (error) {
@@ -50,8 +50,8 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: RouteContext
-) {
+  context: Context
+): Promise<NextResponse> {
   try {
     const body = await request.json()
     
@@ -69,7 +69,7 @@ export async function PATCH(
     const { data: appointment, error } = await supabase
       .from('appointments')
       .update(body)
-      .eq('id', params.id)
+      .eq('id', context.params.id)
       .select()
       .single()
 
@@ -90,9 +90,9 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: RouteContext
-) {
+  _req: NextRequest,
+  context: Context
+): Promise<NextResponse> {
   try {
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -108,7 +108,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('appointments')
       .delete()
-      .eq('id', params.id)
+      .eq('id', context.params.id)
 
     if (error) {
       return NextResponse.json(
