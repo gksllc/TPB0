@@ -136,62 +136,43 @@ const getDayOfWeek = (date: Date): keyof typeof DEFAULT_BUSINESS_HOURS => {
   return days[date.getDay()]
 }
 
-export async function GET(request: Request) {
-  try {
-    // Add CORS headers
-    const headersList = headers()
-    const origin = headersList.get('origin') || '*'
-
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': origin,
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Content-Type': 'application/json',
-    }
+      'Access-Control-Max-Age': '86400',
+    },
+  })
+}
 
-    const { searchParams } = new URL(request.url)
-    const dateStr = searchParams.get('date')
-    const groomerId = searchParams.get('groomerId')
-    const serviceDuration = parseInt(searchParams.get('duration') || '30', 10)
+export async function GET(request: Request) {
+  try {
+    // Parse query parameters
+    const url = new URL(request.url)
+    const date = url.searchParams.get('date')
+    const employeeId = url.searchParams.get('employeeId')
+    const duration = parseInt(url.searchParams.get('duration') || '30', 10)
 
-    console.log('Processing availability request:', { dateStr, groomerId, serviceDuration })
-
-    if (!dateStr || !groomerId) {
-      console.error('Missing parameters:', { dateStr, groomerId })
+    if (!date || !employeeId) {
       return NextResponse.json({
         success: false,
         error: 'Missing required parameters'
-      }, { 
-        status: 400,
-        headers: corsHeaders
-      })
+      }, { status: 400 })
     }
 
-    // Parse the date string
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) {
-      console.error('Invalid date string:', dateStr)
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid date format'
-      }, { 
-        status: 400,
-        headers: corsHeaders
-      })
-    }
+    const selectedDate = new Date(date)
+    const dayOfWeek = getDayOfWeek(selectedDate)
+    const businessHours = DEFAULT_BUSINESS_HOURS[dayOfWeek]
 
-    // Get the business hours for the selected day
-    const dayName = getDayOfWeek(date)
-    const dayHours = DEFAULT_BUSINESS_HOURS[dayName]
-
-    console.log('Business hours for', dayName, ':', dayHours)
-
-    // Get existing appointments from Supabase
-    const { data: bookedAppointments, error: appointmentsError } = await supabase
+    // Get existing appointments for the selected date and employee
+    const { data: appointments, error: appointmentsError } = await supabase
       .from('appointments')
       .select('appointment_time, appointment_duration')
-      .eq('appointment_date', dateStr)
-      .eq('employee_id', groomerId)
+      .eq('employee_id', employeeId)
+      .eq('appointment_date', date)
       .not('status', 'eq', 'cancelled')
 
     if (appointmentsError) {
@@ -199,58 +180,39 @@ export async function GET(request: Request) {
       return NextResponse.json({
         success: false,
         error: 'Failed to fetch appointments'
-      }, { 
-        status: 500,
-        headers: corsHeaders
-      })
+      }, { status: 500 })
     }
 
-    console.log('Found booked appointments:', bookedAppointments)
-
-    // Convert booked appointments to time ranges in minutes
-    const bookedTimeRanges = bookedAppointments.map(appointment => {
-      const startMinutes = timeToMinutes(appointment.appointment_time)
-      // Parse duration as a number, default to 30 if invalid
-      const duration = parseInt(appointment.appointment_duration?.toString() || '30', 10)
-      const range = {
-        start: startMinutes,
-        end: startMinutes + duration
-      }
-      console.log('Appointment range:', {
-        time: appointment.appointment_time,
-        duration,
-        startMinutes,
-        endMinutes: range.end,
-        range
-      })
-      return range
-    })
+    // Convert appointments to time slots
+    const bookedSlots = appointments?.map(appointment => ({
+      start: timeToMinutes(appointment.appointment_time),
+      end: timeToMinutes(appointment.appointment_time) + (appointment.appointment_duration || 30)
+    })) || []
 
     // Generate available time slots
-    const availableTimeSlots = generateTimeSlots(
-      dayHours.open,
-      dayHours.close,
-      bookedTimeRanges,
-      serviceDuration
+    const availableSlots = generateTimeSlots(
+      businessHours.open,
+      businessHours.close,
+      bookedSlots,
+      duration
     )
 
-    console.log('Final available time slots:', availableTimeSlots)
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
-      data: {
-        availableTimeSlots,
-        businessHours: dayHours
-      }
-    }, {
-      headers: corsHeaders
+      data: availableSlots
     })
 
-  } catch (error: any) {
+    // Set CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
+    return response
+  } catch (error) {
     console.error('Error in availability endpoint:', error)
     return NextResponse.json({
       success: false,
-      error: error.message || 'Internal server error'
+      error: error instanceof Error ? error.message : 'Internal server error'
     }, { status: 500 })
   }
 } 
