@@ -1,10 +1,11 @@
 import { Metadata } from "next"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
+import { createServerClient } from "@supabase/ssr"
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { AuthPage } from "@/components/auth-page"
 import type { Database } from "@/lib/database.types"
+import type { CookieOptions } from '@supabase/ssr'
 
 export const metadata: Metadata = {
   title: "Sign In - The Pet Bodega",
@@ -13,6 +14,11 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+async function getCookieStore() {
+  const cookieStore = cookies()
+  return cookieStore
+}
 
 export default async function LoginPage() {
   try {
@@ -30,10 +36,25 @@ export default async function LoginPage() {
       return <AuthPage />
     }
 
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookieStore 
-    })
+    const cookieStore = await getCookieStore()
+
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options })
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.delete({ name, ...options })
+          }
+        }
+      }
+    )
     
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     
