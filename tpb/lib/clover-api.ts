@@ -167,11 +167,11 @@ class CloverApi {
 
   clearCacheForEndpoint(endpoint: string) {
     const prefix = `GET-${endpoint}`
-    for (const [key] of this.cache) {
+    Array.from(this.cache.keys()).forEach(key => {
       if (key.startsWith(prefix)) {
         this.cache.delete(key)
       }
-    }
+    })
   }
 }
 
