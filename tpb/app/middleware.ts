@@ -8,11 +8,21 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient<Database>({ req, res })
 
   try {
-    // Refresh session if expired - this will update the session cookie if needed
+    // Refresh session if expired
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError) {
       console.error('Session error:', sessionError)
+      return redirectToLogin(req)
+    }
+
+    // If no session and trying to access protected routes
+    if (!session && (
+      req.nextUrl.pathname.startsWith('/dashboard') ||
+      req.nextUrl.pathname.startsWith('/client') ||
+      req.nextUrl.pathname.startsWith('/employee') ||
+      req.nextUrl.pathname.startsWith('/api/appointments')
+    )) {
       return redirectToLogin(req)
     }
 
@@ -57,6 +67,7 @@ export async function middleware(req: NextRequest) {
       }
     }
 
+    // Update response with new session cookies
     return res
   } catch (error) {
     console.error('Middleware error:', error)
@@ -74,6 +85,9 @@ function redirectToLogin(req: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
-    '/auth/:path*'
+    '/auth/:path*',
+    '/client/:path*',
+    '/employee/:path*',
+    '/api/appointments/:path*'
   ]
 } 

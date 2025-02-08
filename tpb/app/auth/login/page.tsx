@@ -30,7 +30,10 @@ export default async function LoginPage() {
       return <AuthPage />
     }
 
-    const supabase = createRouteHandlerClient<Database>({ cookies })
+    const cookieStore = await cookies()
+    const supabase = createRouteHandlerClient<Database>({ 
+      cookies: () => cookieStore 
+    })
     
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     

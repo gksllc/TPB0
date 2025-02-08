@@ -7,7 +7,8 @@ import { type Database } from '@/lib/database.types'
 import { 
   type AppointmentResponse, 
   type AppointmentCreate, 
-  type AppointmentUpdate 
+  type AppointmentUpdate,
+  type AppointmentWithRelations
 } from '@/lib/types/appointments'
 import { revalidatePath } from 'next/cache'
 
@@ -36,7 +37,9 @@ async function handleCloverRequest(endpoint: string, method: string, body?: any)
 export async function GET() {
   try {
     const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    const supabase = createRouteHandlerClient<Database>({ 
+      cookies: () => cookieStore 
+    })
 
     // Verify authentication
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
@@ -49,6 +52,7 @@ export async function GET() {
     }
 
     if (!session) {
+      console.error('No active session found')
       return NextResponse.json({
         success: false,
         error: 'No active session'
@@ -62,7 +66,7 @@ export async function GET() {
       .eq('id', session.user.id)
       .single()
 
-    if (userError) {
+    if (userError || !userData?.role) {
       console.error('User role check error:', userError)
       return NextResponse.json({
         success: false,
@@ -81,7 +85,20 @@ export async function GET() {
     const { data: appointmentsData, error: appointmentsError } = await supabase
       .from('appointments')
       .select(`
-        *,
+        id,
+        user_id,
+        pet_id,
+        service_type,
+        service_items,
+        status,
+        appointment_date,
+        appointment_time,
+        employee_id,
+        employee_name,
+        appointment_duration,
+        c_order_id,
+        created_at,
+        updated_at,
         pet:pets!appointments_pet_id_fkey (
           id,
           name,
@@ -92,7 +109,7 @@ export async function GET() {
       .order('appointment_date', { ascending: true })
       .order('appointment_time', { ascending: true })
 
-    if (appointmentsError) {
+    if (appointmentsError || !appointmentsData) {
       console.error('Database query error:', appointmentsError)
       throw appointmentsError
     }
@@ -104,7 +121,7 @@ export async function GET() {
       .select('id, first_name, last_name, email, phone')
       .in('id', userIds)
 
-    if (usersError) {
+    if (usersError || !usersData) {
       console.error('Users query error:', usersError)
       throw usersError
     }
@@ -113,17 +130,40 @@ export async function GET() {
     const userMap = new Map(usersData.map(user => [user.id, user]))
 
     // Transform the data
-    const transformedData = appointmentsData.map(appointment => ({
-      ...appointment,
-      pet: appointment.pet,
-      customer: userMap.get(appointment.user_id) ? {
-        id: appointment.user_id,
-        firstName: userMap.get(appointment.user_id)?.first_name || null,
-        lastName: userMap.get(appointment.user_id)?.last_name || null,
-        email: userMap.get(appointment.user_id)?.email || '',
-        phone: userMap.get(appointment.user_id)?.phone || null
-      } : null
-    }))
+    const transformedData = appointmentsData.map(appointment => {
+      const user = userMap.get(appointment.user_id)
+      const petData = Array.isArray(appointment.pet) ? appointment.pet[0] : appointment.pet
+      const transformed: AppointmentWithRelations = {
+        id: appointment.id,
+        user_id: appointment.user_id,
+        pet_id: appointment.pet_id,
+        service_type: appointment.service_type,
+        service_items: appointment.service_items,
+        status: appointment.status,
+        appointment_date: appointment.appointment_date,
+        appointment_time: appointment.appointment_time,
+        employee_id: appointment.employee_id,
+        employee_name: appointment.employee_name,
+        appointment_duration: appointment.appointment_duration,
+        c_order_id: appointment.c_order_id,
+        created_at: appointment.created_at,
+        updated_at: appointment.updated_at,
+        pet: {
+          id: petData.id,
+          name: petData.name,
+          image_url: petData.image_url,
+          size: petData.size
+        },
+        customer: user ? {
+          id: user.id,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          email: user.email,
+          phone: user.phone
+        } : null
+      }
+      return transformed
+    })
 
     return NextResponse.json({
       success: true,
@@ -142,7 +182,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies })
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient<Database>({ 
+      cookies: () => cookieStore 
+    })
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {
@@ -175,7 +218,15 @@ export async function POST(request: Request) {
     const { data: appointmentData, error: appointmentError } = await supabase
       .from('appointments')
       .insert({
-        ...body,
+        pet_id: body.pet_id,
+        service_type: body.service_type,
+        service_items: body.service_items,
+        status: body.status,
+        appointment_date: body.appointment_date,
+        appointment_time: body.appointment_time,
+        employee_id: body.employee_id,
+        employee_name: body.employee_name,
+        appointment_duration: body.appointment_duration,
         c_order_id: cloverAppointment.id,
         user_id: session.user.id,
       })
@@ -201,7 +252,10 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies })
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient<Database>({ 
+      cookies: () => cookieStore 
+    })
     
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {
@@ -233,7 +287,16 @@ export async function PATCH(request: Request) {
     // Update database
     const { data: appointmentData, error: appointmentError } = await supabase
       .from('appointments')
-      .update(updateData)
+      .update({
+        service_type: updateData.service_type,
+        service_items: updateData.service_items,
+        status: updateData.status,
+        appointment_date: updateData.appointment_date,
+        appointment_time: updateData.appointment_time,
+        employee_id: updateData.employee_id,
+        employee_name: updateData.employee_name,
+        appointment_duration: updateData.appointment_duration,
+      })
       .eq('id', id)
       .select()
       .single()
