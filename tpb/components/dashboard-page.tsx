@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
+import type { AppointmentWithRelations } from '@/lib/types/appointments'
 import {
   Select,
   SelectContent,
@@ -83,7 +84,7 @@ export function DashboardPage(): JSX.Element {
   const [appointmentsLoading, setAppointmentsLoading] = useState(true)
   const [upcomingAppointments, setUpcomingAppointments] = useState<UpcomingAppointment[]>([])
   const [upcomingLoading, setUpcomingLoading] = useState(true)
-  const [selectedAppointment, setSelectedAppointment] = useState<UpcomingAppointment | null>(null)
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithRelations | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const monthOptions: MonthOption[] = Array.from({ length: 3 }).map((_, index) => {
@@ -201,6 +202,53 @@ export function DashboardPage(): JSX.Element {
       setUpcomingLoading(false)
     }
   }, [supabase, upcomingLoading])
+
+  // Add function to fetch complete appointment data
+  const fetchAppointmentDetails = async (appointmentId: string) => {
+    try {
+      const { data: appointmentData, error: appointmentError } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          pet:pets!appointments_pet_id_fkey (
+            id,
+            name,
+            image_url,
+            size
+          ),
+          customer:users!appointments_user_id_fkey (
+            id,
+            first_name,
+            last_name,
+            email,
+            phone
+          )
+        `)
+        .eq('id', appointmentId)
+        .single()
+
+      if (appointmentError) throw appointmentError
+
+      if (appointmentData) {
+        const transformedAppointment = {
+          ...appointmentData,
+          pet: appointmentData.pet,
+          customer: appointmentData.customer ? {
+            id: appointmentData.customer.id,
+            firstName: appointmentData.customer.first_name,
+            lastName: appointmentData.customer.last_name,
+            email: appointmentData.customer.email,
+            phone: appointmentData.customer.phone
+          } : null
+        }
+        setSelectedAppointment(transformedAppointment)
+        setIsDetailsOpen(true)
+      }
+    } catch (error) {
+      console.error('Error fetching appointment details:', error)
+      toast.error('Failed to load appointment details')
+    }
+  }
 
   // Initial data fetch
   useEffect(() => {
@@ -406,8 +454,7 @@ export function DashboardPage(): JSX.Element {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          setSelectedAppointment(appointment)
-                          setIsDetailsOpen(true)
+                          void fetchAppointmentDetails(appointment.id)
                         }}
                       >
                         View Details
