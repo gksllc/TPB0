@@ -13,13 +13,24 @@ export async function getServerSupabase() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value
+          const cookie = cookieStore.get(name)
+          return cookie?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set(name, value, options)
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Handle cookie setting error
+            console.error('Error setting cookie:', error)
+          }
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.delete(name)
+          try {
+            cookieStore.delete({ name, ...options })
+          } catch (error) {
+            // Handle cookie deletion error
+            console.error('Error removing cookie:', error)
+          }
         }
       }
     }
