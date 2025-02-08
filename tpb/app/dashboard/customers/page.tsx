@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { AppCustomersPage } from "@/components/app-customers-page"
+import { AppCustomersPage } from "@/components/customers-page"
 
 export const metadata: Metadata = {
   title: "Customers - The Pet Bodega",

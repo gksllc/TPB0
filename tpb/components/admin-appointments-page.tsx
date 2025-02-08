@@ -9,7 +9,7 @@ import { AppointmentList } from '@/components/admin/appointment-list'
 import { AppointmentFilters } from '@/components/admin/appointment-filters'
 import { NewAppointmentDialog } from '@/components/new-appointment-dialog'
 import { AppointmentDetailsDialog } from '@/components/appointment-details-dialog'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/lib/database.types'
 import type { AppointmentWithRelations } from '@/lib/types/appointments'
 import {
@@ -34,19 +34,23 @@ export function AdminAppointmentsPage() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [deleteAppointmentId, setDeleteAppointmentId] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClientComponentClient<Database>()
 
   // Fetch appointments
   const fetchAppointments = useCallback(async () => {
     try {
       setIsRefreshing(true)
-      const response = await fetch('/api/appointments')
-      const result = await response.json()
+      setError(null)
 
+      const response = await fetch('/api/appointments')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
       if (!result.success) {
         throw new Error(result.error || 'Failed to fetch appointments')
       }
@@ -54,7 +58,9 @@ export function AdminAppointmentsPage() {
       setAppointments(result.data)
     } catch (error) {
       console.error('Error fetching appointments:', error)
-      toast.error('Failed to fetch appointments')
+      const message = error instanceof Error ? error.message : 'Failed to fetch appointments'
+      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
@@ -62,7 +68,7 @@ export function AdminAppointmentsPage() {
   }, [])
 
   useEffect(() => {
-    fetchAppointments()
+    void fetchAppointments()
   }, [fetchAppointments])
 
   // Filter appointments
@@ -146,6 +152,17 @@ export function AdminAppointmentsPage() {
     return (
       <div className="flex h-[200px] items-center justify-center">
         <div className="text-muted-foreground">Loading appointments...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="text-red-500">{error}</div>
+        <Button onClick={() => void fetchAppointments()}>
+          Try Again
+        </Button>
       </div>
     )
   }

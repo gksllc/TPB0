@@ -173,6 +173,13 @@ export function ClientAppointmentsPage() {
             pets (
               name,
               image_url
+            ),
+            customer:user_id (
+              id,
+              first_name,
+              last_name,
+              email,
+              phone
             )
           `)
           .eq('user_id', currentUser.id)
@@ -217,7 +224,14 @@ export function ClientAppointmentsPage() {
             appointment_time: rawData.appointment_time,
             employee_id: rawData.employee_id,
             employee_name: rawData.employee_name,
-            pet_image_url: rawData.pets?.[0]?.image_url || null // Access first pet's image if available
+            pet_image_url: Array.isArray(rawData.pets) && rawData.pets.length > 0 ? rawData.pets[0].image_url : null,
+            customer: rawData.customer ? {
+              id: rawData.customer.id,
+              firstName: rawData.customer.first_name,
+              lastName: rawData.customer.last_name,
+              email: rawData.customer.email,
+              phone: rawData.customer.phone
+            } : null
           }
         })
 

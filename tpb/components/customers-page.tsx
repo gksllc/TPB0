@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { Database } from '@/lib/database.types'
 import { Button } from '@/components/ui/button'
-import { NewUserDialog } from '@/components/new-user-dialog'
+import { useRouter } from 'next/navigation'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import type { Database } from '@/lib/database.types'
 
 interface Customer {
   id: string
@@ -13,41 +13,60 @@ interface Customer {
   last_name: string | null
   phone: string | null
   created_at: string
-  role: string
 }
 
 export function AppCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showNewUserDialog, setShowNewUserDialog] = useState(false)
+  const router = useRouter()
+  const supabase = createClientComponentClient<Database>()
 
   const fetchCustomers = async () => {
     try {
-      const supabase = createClient()
+      console.log('Starting to fetch customers...')
+
+      // First verify we have an active session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError)
+        throw new Error('Authentication error')
+      }
+
+      if (!session) {
+        console.error('No active session')
+        throw new Error('No active session')
+      }
+
+      console.log('Session found:', session.user.id)
+
+      // Fetch customers with role = 'client'
       const { data, error: fetchError } = await supabase
         .from('users')
-        .select('id, email, first_name, last_name, phone, created_at, role')
+        .select('id, email, first_name, last_name, phone, created_at')
         .eq('role', 'client')
         .order('created_at', { ascending: false })
 
+      console.log('Query response:', { data, error: fetchError })
+
       if (fetchError) {
-        console.error('Supabase error:', fetchError)
-        if (fetchError.code === 'PGRST301') {
-          throw new Error('You do not have permission to view customers. Please check your role and permissions.')
-        }
+        console.error('Error fetching customers:', fetchError)
         throw fetchError
       }
 
       if (!data) {
-        throw new Error('No data returned from Supabase')
+        console.log('No data returned')
+        setCustomers([])
+        return
       }
 
+      console.log('Customers found:', data.length)
       setCustomers(data)
       setError(null)
-    } catch (err) {
-      console.error('Error fetching customers:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch customers')
+    } catch (error) {
+      console.error('Error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to fetch customers')
     } finally {
       setIsLoading(false)
     }
@@ -62,29 +81,30 @@ export function AppCustomersPage() {
     void fetchCustomers()
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="text-red-500">{error}</div>
+        <Button onClick={handleRefresh}>
+          Try Again
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Customers</h1>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={isLoading}
-          >
+          <Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
             {isLoading ? 'Refreshing...' : 'Refresh'}
           </Button>
-          <Button onClick={() => setShowNewUserDialog(true)}>
+          <Button>
             Add Customer
           </Button>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 text-red-500 p-4 rounded-md">
-          {error}
-        </div>
-      )}
 
       <div className="bg-white shadow-sm rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
@@ -105,39 +125,43 @@ export function AppCustomersPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {customers.map((customer) => (
-              <tr key={customer.id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">
-                    {customer.first_name} {customer.last_name}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {customer.email}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {customer.phone || 'N/A'}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-500">
-                    {new Date(customer.created_at).toLocaleDateString()}
+            {customers.length === 0 ? (
+              <tr>
+                <td className="px-6 py-4 whitespace-nowrap" colSpan={4}>
+                  <div className="text-sm text-gray-500 text-center">
+                    {isLoading ? 'Loading customers...' : 'No customers found'}
                   </div>
                 </td>
               </tr>
-            ))}
+            ) : (
+              customers.map((customer) => (
+                <tr key={customer.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">
+                      {customer.first_name} {customer.last_name}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">
+                      {customer.email}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">
+                      {customer.phone || 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-500">
+                      {new Date(customer.created_at).toLocaleDateString()}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-
-      <NewUserDialog
-        open={showNewUserDialog}
-        onOpenChange={setShowNewUserDialog}
-        onUpdate={handleRefresh}
-      />
     </div>
   )
 } 

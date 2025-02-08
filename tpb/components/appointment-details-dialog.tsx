@@ -314,23 +314,25 @@ export function AppointmentDetailsDialog({
           <div className="grid gap-4 py-4">
             <div className="flex items-center gap-4">
               <div className="h-16 w-16 relative rounded-full overflow-hidden bg-primary/10">
-                {appointment.pet.image_url ? (
+                {appointment.pet?.image_url ? (
                   <Image
                     src={appointment.pet.image_url}
-                    alt={appointment.pet.name}
+                    alt={appointment.pet.name || 'Pet image'}
                     fill
                     className="object-cover"
                   />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center">
-                    <PawPrint className="h-8 w-8 text-primary/60" />
+                    <PawPrint className="h-8 w-8 text-primary/40" />
                   </div>
                 )}
               </div>
               <div>
-                <h3 className="font-semibold">{appointment.pet.name}</h3>
+                <h3 className="font-semibold">
+                  {appointment.pet?.name || 'Unnamed Pet'}
+                </h3>
                 <p className="text-sm text-muted-foreground">
-                  {appointment.pet.size ? `${appointment.pet.size} size` : 'Size not specified'}
+                  {appointment.pet?.size ? `Size: ${appointment.pet.size}` : 'Size not specified'}
                 </p>
               </div>
             </div>

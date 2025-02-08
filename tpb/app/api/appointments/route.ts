@@ -35,57 +35,107 @@ async function handleCloverRequest(endpoint: string, method: string, body?: any)
 
 export async function GET() {
   try {
-    const supabase = createRouteHandlerClient<Database>({ cookies })
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
 
-    const { data, error } = await supabase
+    // Verify authentication
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) {
+      console.error('Session error:', sessionError)
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication error'
+      }, { status: 401 })
+    }
+
+    if (!session) {
+      return NextResponse.json({
+        success: false,
+        error: 'No active session'
+      }, { status: 401 })
+    }
+
+    // Verify admin role
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', session.user.id)
+      .single()
+
+    if (userError) {
+      console.error('User role check error:', userError)
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to verify user role'
+      }, { status: 403 })
+    }
+
+    if (userData.role !== 'admin') {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized: Admin access required'
+      }, { status: 403 })
+    }
+
+    // First get all appointments
+    const { data: appointmentsData, error: appointmentsError } = await supabase
       .from('appointments')
       .select(`
         *,
-        pets:pet_id (
+        pet:pets!appointments_pet_id_fkey (
           id,
           name,
           image_url,
           size
-        ),
-        customer:user_id (
-          id,
-          first_name,
-          last_name,
-          email,
-          phone
         )
       `)
       .order('appointment_date', { ascending: true })
       .order('appointment_time', { ascending: true })
 
-    if (error) throw error
+    if (appointmentsError) {
+      console.error('Database query error:', appointmentsError)
+      throw appointmentsError
+    }
 
-    const transformedData = data.map(appointment => ({
+    // Then get user details for each appointment
+    const userIds = Array.from(new Set(appointmentsData.map(a => a.user_id)))
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, email, phone')
+      .in('id', userIds)
+
+    if (usersError) {
+      console.error('Users query error:', usersError)
+      throw usersError
+    }
+
+    // Create a map of user data
+    const userMap = new Map(usersData.map(user => [user.id, user]))
+
+    // Transform the data
+    const transformedData = appointmentsData.map(appointment => ({
       ...appointment,
-      pet: appointment.pets,
-      customer: appointment.customer ? {
-        id: appointment.customer.id,
-        firstName: appointment.customer.first_name,
-        lastName: appointment.customer.last_name,
-        email: appointment.customer.email,
-        phone: appointment.customer.phone
-      } : null,
-      pets: undefined // Remove the original pets field
+      pet: appointment.pet,
+      customer: userMap.get(appointment.user_id) ? {
+        id: appointment.user_id,
+        firstName: userMap.get(appointment.user_id)?.first_name || null,
+        lastName: userMap.get(appointment.user_id)?.last_name || null,
+        email: userMap.get(appointment.user_id)?.email || '',
+        phone: userMap.get(appointment.user_id)?.phone || null
+      } : null
     }))
 
     return NextResponse.json({
       success: true,
       data: transformedData
-    }, {
-      headers: {
-        'Cache-Control': `s-maxage=${CACHE_REVALIDATE_SECONDS}, stale-while-revalidate`
-      }
     })
+
   } catch (error) {
-    console.error('Error fetching appointments:', error)
+    console.error('Error in appointments API:', error)
+    
     return NextResponse.json({
       success: false,
-      error: 'Failed to fetch appointments'
+      error: error instanceof Error ? error.message : 'Failed to fetch appointments'
     }, { status: 500 })
   }
 }

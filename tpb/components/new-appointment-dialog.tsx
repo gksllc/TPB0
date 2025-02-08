@@ -145,17 +145,27 @@ export function NewAppointmentDialog({
 
   // Fetch customers from Supabase
   const fetchCustomers = useCallback(async () => {
-    if (isLoadingCustomers || allCustomers.length > 0) return
+    if (isLoadingCustomers) return
     
     setIsLoadingCustomers(true)
     try {
+      console.log('Fetching customers...')
       const { data, error } = await supabase
         .from('users')
         .select('id, first_name, last_name, email, phone')
         .eq('role', 'client')
         .order('first_name', { ascending: true })
       
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching customers:', {
+          code: error.code,
+          message: error.message,
+          details: error.details
+        })
+        throw error
+      }
+
+      console.log('Successfully fetched customers:', data?.length || 0)
       setAllCustomers(data || [])
     } catch (error) {
       console.error('Error fetching customers:', error)
@@ -163,7 +173,7 @@ export function NewAppointmentDialog({
     } finally {
       setIsLoadingCustomers(false)
     }
-  }, [supabase, isLoadingCustomers, allCustomers.length])
+  }, [supabase, isLoadingCustomers])
 
   // Fetch employees
   const fetchEmployees = useCallback(async () => {
@@ -277,17 +287,23 @@ export function NewAppointmentDialog({
     }
   }, [date, employee, services, calculateTotalDuration])
 
-  // Fetch employees, services, and customers when dialog opens
+  // Update useEffect for initial data loading
   useEffect(() => {
     if (open) {
-      void fetchEmployees()
-      void fetchServices()
-      void fetchCustomers()
+      console.log('Dialog opened, fetching initial data...')
+      Promise.all([
+        fetchCustomers(),
+        fetchEmployees(),
+        fetchServices()
+      ]).catch(error => {
+        console.error('Error loading initial data:', error)
+        toast.error('Failed to load some data. Please try again.')
+      })
     } else {
       setCustomerSearchQuery("")
       setServiceSearchQuery("")
     }
-  }, [open, fetchEmployees, fetchServices, fetchCustomers])
+  }, [open, fetchCustomers, fetchEmployees, fetchServices])
 
   // Fetch available times when dependencies change
   useEffect(() => {
@@ -517,9 +533,13 @@ export function NewAppointmentDialog({
                   />
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
-                  {filteredCustomers.length === 0 ? (
+                  {isLoadingCustomers ? (
                     <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none text-muted-foreground">
-                      No customers found.
+                      Loading customers...
+                    </div>
+                  ) : filteredCustomers.length === 0 ? (
+                    <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none text-muted-foreground">
+                      {customerSearchQuery ? "No customers found matching your search" : "No customers found"}
                     </div>
                   ) : (
                     filteredCustomers.map((customer) => (
