@@ -8,7 +8,6 @@ import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import type { Database } from "@/lib/database.types"
 import { EditUserDialog } from "./edit-user-dialog"
-import { useRouter } from "next/navigation"
 import { NewUserDialog } from "./new-user-dialog"
 
 type Customer = {
@@ -36,60 +35,44 @@ export function AppCustomersPage() {
   const [selectedUser, setSelectedUser] = useState<Customer | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [newUserDialogOpen, setNewUserDialogOpen] = useState(false)
-  const router = useRouter()
 
   const fetchCustomers = useCallback(async () => {
     try {
+      setLoading(true)
+      console.log('Starting customer fetch...')
+      console.log('Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+
       const { data, error } = await supabase
         .from('users')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          address,
-          city,
-          state,
-          zip_code,
-          role,
-          created_at
-        `)
+        .select('*')
         .eq('role', 'client')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      console.log('Supabase response:', { data, error })
 
-      setCustomers(data || [])
+      if (error) {
+        console.error('Error fetching customers:', error)
+        toast.error("Failed to load customers: " + error.message)
+        throw error
+      }
+
+      if (!data || data.length === 0) {
+        console.log('No customers found in database')
+        setCustomers([])
+        return
+      }
+
+      console.log('Successfully fetched customers:', data)
+      setCustomers(data)
     } catch (error) {
-      console.error('Error fetching customers:', error)
-      toast.error("Failed to load customers")
+      console.error('Error in fetchCustomers:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load customers'
+      toast.error(errorMessage)
+      setCustomers([])
     } finally {
       setLoading(false)
     }
   }, [supabase])
-
-  useEffect(() => {
-    const checkRole = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user?.id) {
-        router.push('/auth')
-        return
-      }
-
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', session.user.id)
-        .single()
-      
-      if (error || userData?.role !== 'admin') {
-        router.push('/client')
-      }
-    }
-    
-    checkRole()
-  }, [supabase, router])
 
   useEffect(() => {
     fetchCustomers()

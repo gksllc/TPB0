@@ -9,6 +9,56 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          id: string
+          c_order_id: string | null
+          user_id: string
+          pet_id: string
+          service_type: string | null
+          service_items: Json
+          status: string
+          appointment_date: string
+          appointment_time: string
+          employee_id: string
+          employee_name: string
+          appointment_duration: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          c_order_id?: string | null
+          user_id: string
+          pet_id: string
+          service_type?: string | null
+          service_items?: Json
+          status?: string
+          appointment_date: string
+          appointment_time: string
+          employee_id: string
+          employee_name: string
+          appointment_duration?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          c_order_id?: string | null
+          user_id?: string
+          pet_id?: string
+          service_type?: string | null
+          service_items?: Json
+          status?: string
+          appointment_date?: string
+          appointment_time?: string
+          employee_id?: string
+          employee_name?: string
+          appointment_duration?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
       users: {
         Row: {
           id: string
@@ -54,6 +104,7 @@ export interface Database {
           weight: string | null
           created_at: string
           updated_at: string
+          image_url: string | null
         }
         Insert: {
           id?: string
@@ -67,6 +118,7 @@ export interface Database {
           weight?: string | null
           created_at?: string
           updated_at?: string
+          image_url?: string | null
         }
         Update: {
           id?: string
@@ -80,6 +132,7 @@ export interface Database {
           weight?: string | null
           created_at?: string
           updated_at?: string
+          image_url?: string | null
         }
       }
     }

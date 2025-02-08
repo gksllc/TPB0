@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select"
 import { format, subMonths, startOfMonth, endOfMonth, add, addDays } from 'date-fns'
 import Image from 'next/image'
-import { AppointmentDetailsDialog } from './appointment-details-dialog'
+import { AppointmentDetailsDialog } from '@/components/appointment-details-dialog'
 import { cloverApi } from '@/lib/clover-api'
 
 // Dynamic imports for shadcn components

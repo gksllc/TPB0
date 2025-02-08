@@ -9,6 +9,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,23 +42,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useAppointmentData } from '@/hooks/use-appointment-data'
+import type { AppointmentWithRelations } from '@/lib/types/appointments'
 
 interface AppointmentDetailsDialogProps {
-  appointment: {
-    id: string
-    c_order_id?: string
-    appointment_date: string
-    appointment_time: string
-    pet_name: string
-    pet_id: string
-    service_items: string[]
-    status: string
-    employee_name: string
-    employee_id: string
-    pet_image_url: string | null
-    appointment_duration: number
-    pet_size?: string
-  } | null
+  appointment: AppointmentWithRelations | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onUpdate?: () => void
@@ -318,104 +307,86 @@ export function AppointmentDetailsDialog({
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Appointment Details</DialogTitle>
+            <DialogDescription>
+              View the details of this appointment.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 relative rounded-full overflow-hidden bg-primary/10">
-                  {appointment.pet_image_url ? (
-                    <Image
-                      src={appointment.pet_image_url}
-                      alt={appointment.pet_name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 64px, 96px"
-                      quality={95}
-                      priority
-                    />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center">
-                      <PawPrint className="h-8 w-8 text-primary/60" />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">{appointment.pet_name}</h3>
-                  {!isLoading && (
-                    <p className="text-sm text-muted-foreground">
-                      {format(new Date(appointment.appointment_date), 'MMMM d, yyyy')} at {format(new Date(`2000-01-01T${appointment.appointment_time}`), 'h:mm a')}
-                    </p>
-                  )}
-                </div>
+          <div className="grid gap-4 py-4">
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 relative rounded-full overflow-hidden bg-primary/10">
+                {appointment.pet.image_url ? (
+                  <Image
+                    src={appointment.pet.image_url}
+                    alt={appointment.pet.name}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center">
+                    <PawPrint className="h-8 w-8 text-primary/60" />
+                  </div>
+                )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-
-            <div className="space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium">Services</h4>
-                </div>
-                <div className="space-y-1">
-                  {services.map((service, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        • {service}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => setServices(services.filter((_, i) => i !== index))}
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium mb-2">Groomer</h4>
-                <p className="text-sm text-muted-foreground">{employeeName}</p>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-medium mb-2">Duration</h4>
+                <h3 className="font-semibold">{appointment.pet.name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {calculateTotalDuration(services)} minutes
+                  {appointment.pet.size ? `${appointment.pet.size} size` : 'Size not specified'}
                 </p>
               </div>
-
-              <div>
-                <h4 className="text-sm font-medium mb-2">Status</h4>
-                <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                  ${status.toLowerCase() === 'completed' ? 'bg-green-100 text-green-800' :
-                    status.toLowerCase() === 'cancelled' ? 'bg-red-100 text-red-800' :
-                    status.toLowerCase() === 'confirmed' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'}`}>
-                  {status}
-                </div>
-              </div>
             </div>
 
-            {isLoading && (
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleSave}
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
+            <div className="grid gap-2">
+              <div>
+                <span className="font-medium">Date:</span>{' '}
+                {format(new Date(appointment.appointment_date), 'MMMM d, yyyy')}
               </div>
-            )}
+              <div>
+                <span className="font-medium">Time:</span>{' '}
+                {format(new Date(`2000-01-01T${appointment.appointment_time}`), 'h:mm a')}
+              </div>
+              <div>
+                <span className="font-medium">Duration:</span>{' '}
+                {Math.floor(appointment.appointment_duration / 60)}h {appointment.appointment_duration % 60}m
+              </div>
+              <div>
+                <span className="font-medium">Services:</span>{' '}
+                {appointment.service_items.join(', ')}
+              </div>
+              <div>
+                <span className="font-medium">Groomer:</span>{' '}
+                {appointment.employee_name}
+              </div>
+              <div>
+                <span className="font-medium">Customer:</span>{' '}
+                {appointment.customer.firstName} {appointment.customer.lastName}
+              </div>
+              {appointment.customer.email && (
+                <div>
+                  <span className="font-medium">Email:</span>{' '}
+                  {appointment.customer.email}
+                </div>
+              )}
+              {appointment.customer.phone && (
+                <div>
+                  <span className="font-medium">Phone:</span>{' '}
+                  {appointment.customer.phone}
+                </div>
+              )}
+              <div>
+                <span className="font-medium">Status:</span>{' '}
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                  ${appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                    appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                  {appointment.status}
+                </span>
+              </div>
+            </div>
           </div>
+          <DialogFooter>
+            <Button onClick={() => onOpenChange(false)}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

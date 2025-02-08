@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/lib/database.types'
 import { Button } from '@/components/ui/button'
 import { NewUserDialog } from '@/components/new-user-dialog'
@@ -13,60 +13,53 @@ interface Customer {
   last_name: string | null
   phone: string | null
   created_at: string
+  role: string
 }
 
-export function CustomersPage() {
+export function AppCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showNewUserDialog, setShowNewUserDialog] = useState(false)
 
-  const supabase = createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('role', 'client')
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        setCustomers(data)
-      } catch (error) {
-        console.error('Error fetching customers:', error)
-        setError(error instanceof Error ? error.message : 'Failed to fetch customers')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    void fetchCustomers()
-  }, [supabase])
-
-  const handleRefresh = async () => {
-    setIsLoading(true)
+  const fetchCustomers = async () => {
     try {
-      const { data, error } = await supabase
+      const supabase = createClient()
+      const { data, error: fetchError } = await supabase
         .from('users')
-        .select('*')
+        .select('id, email, first_name, last_name, phone, created_at, role')
         .eq('role', 'client')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (fetchError) {
+        console.error('Supabase error:', fetchError)
+        if (fetchError.code === 'PGRST301') {
+          throw new Error('You do not have permission to view customers. Please check your role and permissions.')
+        }
+        throw fetchError
+      }
+
+      if (!data) {
+        throw new Error('No data returned from Supabase')
+      }
 
       setCustomers(data)
-    } catch (error) {
-      console.error('Error refreshing customers:', error)
-      setError(error instanceof Error ? error.message : 'Failed to refresh customers')
+      setError(null)
+    } catch (err) {
+      console.error('Error fetching customers:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch customers')
     } finally {
       setIsLoading(false)
     }
+  }
+
+  useEffect(() => {
+    void fetchCustomers()
+  }, [])
+
+  const handleRefresh = () => {
+    setIsLoading(true)
+    void fetchCustomers()
   }
 
   return (

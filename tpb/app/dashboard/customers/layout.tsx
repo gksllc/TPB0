@@ -1,5 +1,4 @@
 import { Metadata } from "next"
-import { AppCustomersPage } from "@/components/app-customers-page"
 
 export const metadata: Metadata = {
   title: "Customers - The Pet Bodega",
@@ -9,6 +8,10 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default function Page() {
-  return <AppCustomersPage />
+export default function CustomersLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return children
 } 
