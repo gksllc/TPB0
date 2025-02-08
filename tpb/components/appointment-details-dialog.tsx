@@ -360,15 +360,15 @@ export function AppointmentDetailsDialog({
               </div>
               <div>
                 <span className="font-medium">Customer:</span>{' '}
-                {appointment.customer.firstName} {appointment.customer.lastName}
+                {appointment.customer?.firstName} {appointment.customer?.lastName}
               </div>
-              {appointment.customer.email && (
+              {appointment.customer?.email && (
                 <div>
                   <span className="font-medium">Email:</span>{' '}
                   {appointment.customer.email}
                 </div>
               )}
-              {appointment.customer.phone && (
+              {appointment.customer?.phone && (
                 <div>
                   <span className="font-medium">Phone:</span>{' '}
                   {appointment.customer.phone}
