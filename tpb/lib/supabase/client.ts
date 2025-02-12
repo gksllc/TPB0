@@ -1,6 +1,6 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '../database.types'
+import { COOKIE_OPTIONS } from './cookies'
 
 export const createClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -10,16 +10,18 @@ export const createClient = () => {
     throw new Error('Missing Supabase environment variables')
   }
 
-  return createSupabaseClient<Database>(supabaseUrl, supabaseKey, {
+  return createBrowserClient<Database>(supabaseUrl, supabaseKey, {
     auth: {
-      autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true
-    }
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+      cookieOptions: COOKIE_OPTIONS,
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'supabase-js-web',
+      },
+    },
   })
-}
-
-// Use this for client components
-export const createBrowserClient = () => {
-  return createClientComponentClient<Database>()
 } 

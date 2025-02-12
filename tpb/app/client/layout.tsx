@@ -1,12 +1,12 @@
-import { ClientLayout } from "@/components/client-layout"
+import { ClientLayout as Layout } from "@/components/client-layout"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default function Layout({
+export default function ClientLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return <ClientLayout>{children}</ClientLayout>
+  return <Layout>{children}</Layout>
 } 

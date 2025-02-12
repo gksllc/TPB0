@@ -1,19 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { Database } from '@/lib/database.types'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
-interface Customer {
-  id: string
-  email: string
-  first_name: string | null
-  last_name: string | null
-  phone: string | null
-  created_at: string
-}
+type Customer = Database['public']['Tables']['users']['Row']
 
 export function AppCustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -22,64 +16,148 @@ export function AppCustomersPage() {
   const router = useRouter()
   const supabase = createClientComponentClient<Database>()
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async (session: Session) => {
     try {
-      console.log('Starting to fetch customers...')
-
-      // First verify we have an active session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError) {
-        console.error('Session error:', sessionError)
-        throw new Error('Authentication error')
-      }
-
-      if (!session) {
-        console.error('No active session')
-        throw new Error('No active session')
-      }
-
-      console.log('Session found:', session.user.id)
-
-      // Fetch customers with role = 'client'
       const { data, error: fetchError } = await supabase
         .from('users')
-        .select('id, email, first_name, last_name, phone, created_at')
+        .select()
         .eq('role', 'client')
         .order('created_at', { ascending: false })
 
-      console.log('Query response:', { data, error: fetchError })
-
-      if (fetchError) {
-        console.error('Error fetching customers:', fetchError)
-        throw fetchError
-      }
-
-      if (!data) {
-        console.log('No data returned')
-        setCustomers([])
-        return
-      }
-
-      console.log('Customers found:', data.length)
-      setCustomers(data)
-      setError(null)
+      if (fetchError) throw fetchError
+      if (data) setCustomers(data)
     } catch (error) {
-      console.error('Error:', error)
+      console.error('Error fetching customers:', error)
       setError(error instanceof Error ? error.message : 'Failed to fetch customers')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [supabase])
 
+  const verifyAdmin = useCallback(async (session: Session) => {
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', session.user.id)
+        .single()
+
+      if (userError) throw userError
+      if (!userData?.role || userData.role !== 'admin') {
+        throw new Error('Unauthorized: Admin access required')
+      }
+
+      return true
+    } catch (error) {
+      console.error('Role verification error:', error)
+      router.replace('/')
+      return false
+    }
+  }, [supabase, router])
+
+  // Initialize session and fetch data
   useEffect(() => {
-    void fetchCustomers()
-  }, [])
+    let mounted = true
+    let retryCount = 0
+    const maxRetries = 3
 
-  const handleRefresh = () => {
+    const initialize = async () => {
+      try {
+        // Get the initial session
+        let { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          if (retryCount < maxRetries) {
+            retryCount++
+            console.log(`Retrying session fetch (${retryCount}/${maxRetries})...`)
+            setTimeout(initialize, 1000 * retryCount) // Exponential backoff
+            return
+          }
+          throw sessionError
+        }
+
+        // If no session, try to refresh
+        if (!session) {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          if (refreshError || !refreshData.session) {
+            router.replace('/auth/login')
+            return
+          }
+          session = refreshData.session
+        }
+
+        // Verify admin role
+        const isAdmin = await verifyAdmin(session)
+        if (!isAdmin || !mounted) return
+
+        // Fetch customer data
+        await fetchCustomers(session)
+      } catch (error) {
+        console.error('Initialization error:', error)
+        if (error instanceof Error && error.message.includes('Auth session missing')) {
+          router.replace('/auth/login')
+        } else {
+          setError(error instanceof Error ? error.message : 'Failed to initialize')
+        }
+      }
+    }
+
+    void initialize()
+
+    // Set up auth state listener
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        router.replace('/auth/login')
+        return
+      }
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const isAdmin = await verifyAdmin(session)
+        if (isAdmin && mounted) {
+          await fetchCustomers(session)
+        }
+      }
+    })
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [supabase, router, verifyAdmin, fetchCustomers])
+
+  const handleRefresh = useCallback(async () => {
     setIsLoading(true)
-    void fetchCustomers()
-  }
+    try {
+      // Get current session
+      let { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      // Try to refresh if there's an error or no session
+      if (sessionError || !session) {
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError || !refreshData.session) {
+          throw refreshError || new Error('Failed to refresh session')
+        }
+        session = refreshData.session
+      }
+
+      if (!session) {
+        router.replace('/auth/login')
+        return
+      }
+
+      const isAdmin = await verifyAdmin(session)
+      if (isAdmin) {
+        await fetchCustomers(session)
+      }
+    } catch (error) {
+      console.error('Refresh error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to refresh data')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [supabase, router, verifyAdmin, fetchCustomers])
 
   if (error) {
     return (

@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useRouter } from 'next/navigation'
 
 export function AdminAppointmentsPage() {
   // State
@@ -35,41 +36,144 @@ export function AdminAppointmentsPage() {
   const [deleteAppointmentId, setDeleteAppointmentId] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
 
   const supabase = createClientComponentClient<Database>()
+  const router = useRouter()
+
+  // Initialize session
+  useEffect(() => {
+    const initializeSession = async () => {
+      try {
+        // Try to refresh the session first
+        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError) throw refreshError
+
+        if (!session) {
+          router.push('/auth/login')
+          return
+        }
+
+        // Verify admin role
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+
+        if (userError || !userData || userData.role !== 'admin') {
+          router.push('/')
+          return
+        }
+
+        setIsInitialized(true)
+      } catch (error) {
+        console.error('Session initialization error:', error)
+        router.push('/auth/login')
+      }
+    }
+
+    void initializeSession()
+  }, [supabase, router])
+
+  // Setup auth listener
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        router.push('/auth/login')
+        return
+      }
+
+      if (event === 'TOKEN_REFRESHED') {
+        // Session was refreshed, no need to redirect
+        return
+      }
+
+      // Verify admin role on auth state change
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+
+        if (userError || !userData || userData.role !== 'admin') {
+          router.push('/')
+        }
+      } catch (error) {
+        console.error('Role verification error:', error)
+        router.push('/')
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase, router])
 
   // Fetch appointments
   const fetchAppointments = useCallback(async () => {
+    if (!isInitialized) return
+
     try {
       setIsRefreshing(true)
       setError(null)
 
-      const response = await fetch('/api/appointments')
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session?.access_token) {
+        throw new Error('Authentication required')
+      }
+
+      const response = await fetch('/api/appointments', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Cache-Control': 'no-cache',
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      })
+
+      const errorData = await response.json()
+      
       if (!response.ok) {
-        const errorData = await response.json()
+        if (response.status === 401) {
+          throw new Error('Authentication required')
+        } else if (response.status === 403) {
+          throw new Error(errorData.details || 'Access denied')
+        }
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
-      const result = await response.json()
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to fetch appointments')
+      if (!errorData.success) {
+        throw new Error(errorData.error || 'Failed to fetch appointments')
       }
 
-      setAppointments(result.data)
+      setAppointments(errorData.data)
     } catch (error) {
       console.error('Error fetching appointments:', error)
       const message = error instanceof Error ? error.message : 'Failed to fetch appointments'
       setError(message)
       toast.error(message)
+      
+      if (message.includes('Authentication required')) {
+        router.push('/auth/login')
+      } else if (message.includes('Access denied')) {
+        router.push('/')
+      }
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [])
+  }, [supabase, router, isInitialized])
 
+  // Initial fetch
   useEffect(() => {
-    void fetchAppointments()
-  }, [fetchAppointments])
+    if (isInitialized) {
+      void fetchAppointments()
+    }
+  }, [fetchAppointments, isInitialized])
 
   // Filter appointments
   const filteredAppointments = useMemo(() => {

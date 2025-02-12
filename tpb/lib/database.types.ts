@@ -1,3 +1,5 @@
+import type { UUID } from './types/auth'
+
 export type Json =
   | string
   | number
@@ -9,6 +11,41 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      auth_audit_logs: {
+        Row: {
+          id: UUID
+          user_id: UUID
+          action: string
+          timestamp: string
+          metadata: Json | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: UUID
+          user_id: UUID
+          action: string
+          timestamp?: string
+          metadata?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: UUID
+          user_id?: UUID
+          action?: string
+          timestamp?: string
+          metadata?: Json | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       appointments: {
         Row: {
           id: string
@@ -61,7 +98,7 @@ export interface Database {
       }
       users: {
         Row: {
-          id: string
+          id: string | UUID
           email: string
           first_name: string | null
           last_name: string | null
@@ -71,7 +108,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
-          id?: string
+          id: string | UUID
           email: string
           first_name?: string | null
           last_name?: string | null
@@ -81,7 +118,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
-          id?: string
+          id?: string | UUID
           email?: string
           first_name?: string | null
           last_name?: string | null

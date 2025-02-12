@@ -1,6 +1,6 @@
 import React from 'react'
 import { format } from 'date-fns'
-import { Edit2, Trash2, User, Pencil } from 'lucide-react'
+import { Edit2, Trash2, User, Pencil, PawPrint } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { AppointmentWithRelations } from '@/lib/types/appointments'
+import Image from 'next/image'
 
 interface AppointmentListProps {
   appointments: AppointmentWithRelations[]
@@ -69,14 +70,16 @@ export const AppointmentList = React.memo(function AppointmentList({
               </TableCell>
               <TableCell className="flex items-center gap-2">
                 {appointment.pet?.image_url ? (
-                  <img
+                  <Image
                     src={appointment.pet.image_url}
-                    alt={formatPetName(appointment)}
-                    className="h-8 w-8 rounded-full object-cover"
+                    alt={appointment.pet.name || 'Pet image'}
+                    width={48}
+                    height={48}
+                    className="h-12 w-12 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <PawPrint className="h-6 w-6 text-primary/60" />
                   </div>
                 )}
                 <span>{formatPetName(appointment)}</span>

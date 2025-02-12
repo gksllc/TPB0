@@ -1,7 +1,6 @@
 'use server'
 
 import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { type Database } from '@/lib/database.types'
 import { 
@@ -11,6 +10,8 @@ import {
   type AppointmentWithRelations
 } from '@/lib/types/appointments'
 import { revalidatePath } from 'next/cache'
+import { getServerSupabase } from '@/lib/supabase/server-actions'
+import { createClient } from '@supabase/supabase-js'
 
 const CLOVER_API_BASE_URL = 'https://api.clover.com/v3'
 const CACHE_REVALIDATE_SECONDS = 60
@@ -34,55 +35,123 @@ async function handleCloverRequest(endpoint: string, method: string, body?: any)
   return response.json()
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookieStore 
-    })
+    const supabase = await getServerSupabase()
 
-    // Verify authentication
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError) {
-      console.error('Session error:', sessionError)
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({
         success: false,
-        error: 'Authentication error'
+        error: 'Unauthorized',
+        details: 'Missing or invalid authorization header'
       }, { status: 401 })
     }
 
-    if (!session) {
-      console.error('No active session found')
+    // Extract the token
+    const token = authHeader.split(' ')[1]
+
+    // Verify the token and get session
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError) {
+      console.error('Auth error:', authError)
       return NextResponse.json({
         success: false,
-        error: 'No active session'
+        error: 'Authentication failed',
+        details: authError.message
       }, { status: 401 })
     }
 
-    // Verify admin role
-    const { data: userData, error: userError } = await supabase
+    if (!user) {
+      console.error('No user found')
+      return NextResponse.json({
+        success: false,
+        error: 'Authentication failed',
+        details: 'No user found'
+      }, { status: 401 })
+    }
+
+    // Create a service role client to bypass RLS
+    const serviceRoleClient = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false
+        }
+      }
+    )
+
+    // Try to get user role
+    const { data: userData, error: userError } = await serviceRoleClient
       .from('users')
       .select('role')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
-    if (userError || !userData?.role) {
+    // If user doesn't exist, create them with client role
+    if (userError?.code === 'PGRST116') {
+      const { data: newUser, error: createError } = await serviceRoleClient
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email!,
+          role: 'client',
+          first_name: user.user_metadata?.first_name || '',
+          last_name: user.user_metadata?.last_name || '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('Error creating user:', createError)
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to create user record',
+          details: createError.message
+        }, { status: 500 })
+      }
+
+      // New users should not have admin access
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized',
+        details: 'Admin access required'
+      }, { status: 403 })
+    } else if (userError) {
       console.error('User role check error:', userError)
       return NextResponse.json({
         success: false,
-        error: 'Failed to verify user role'
+        error: 'Failed to verify user role',
+        details: userError.message
+      }, { status: 403 })
+    }
+
+    if (!userData?.role) {
+      console.error('No role found for user')
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to verify user role',
+        details: 'No role assigned'
       }, { status: 403 })
     }
 
     if (userData.role !== 'admin') {
+      console.error('User is not an admin:', user.id)
       return NextResponse.json({
         success: false,
-        error: 'Unauthorized: Admin access required'
+        error: 'Unauthorized',
+        details: 'Admin access required'
       }, { status: 403 })
     }
 
-    // First get all appointments
-    const { data: appointmentsData, error: appointmentsError } = await supabase
+    // Use service role client for fetching appointments to bypass RLS
+    const { data: appointmentsData, error: appointmentsError } = await serviceRoleClient
       .from('appointments')
       .select(`
         id,
@@ -114,9 +183,9 @@ export async function GET() {
       throw appointmentsError
     }
 
-    // Then get user details for each appointment
+    // Then get user details for each appointment using service role client
     const userIds = Array.from(new Set(appointmentsData.map(a => a.user_id)))
-    const { data: usersData, error: usersError } = await supabase
+    const { data: usersData, error: usersError } = await serviceRoleClient
       .from('users')
       .select('id, first_name, last_name, email, phone')
       .in('id', userIds)
@@ -182,10 +251,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookieStore 
-    })
+    const supabase = await getServerSupabase()
 
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {
@@ -252,10 +318,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const cookieStore = cookies()
-    const supabase = createRouteHandlerClient<Database>({ 
-      cookies: () => cookieStore 
-    })
+    const supabase = await getServerSupabase()
     
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {

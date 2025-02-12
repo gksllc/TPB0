@@ -1,20 +1,52 @@
-import { Metadata } from "next"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { createClient } from '@supabase/supabase-js'
-import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+'use client'
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { AuthPage } from "@/components/auth-page"
 import type { Database } from "@/lib/database.types"
 
-export const metadata: Metadata = {
-  title: "Sign In - The Pet Bodega",
-  description: "Sign in to your Pet Bodega account to manage your pet grooming appointments.",
-}
-
-// Force dynamic rendering and disable caching
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 export default function Page() {
-  redirect('/auth/login')
+  const router = useRouter()
+  const session = useSession()
+  const supabase = useSupabaseClient<Database>()
+
+  useEffect(() => {
+    const checkSession = async () => {
+      if (!session) {
+        router.push('/auth/login')
+        return
+      }
+
+      try {
+        // Get user role
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+
+        if (userError) throw userError
+
+        // Redirect based on role
+        switch (userData.role) {
+          case 'admin':
+            router.push('/dashboard/admin-appointments')
+            break
+          case 'client':
+            router.push('/client/dashboard')
+            break
+          default:
+            router.push('/client/dashboard')
+        }
+      } catch (error) {
+        console.error('Error checking user role:', error)
+        router.push('/auth/login')
+      }
+    }
+
+    void checkSession()
+  }, [session, router, supabase])
+
+  return <AuthPage />
 } 

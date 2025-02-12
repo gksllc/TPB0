@@ -9,6 +9,7 @@ import { motion } from "framer-motion"
 import { AuthError } from "@supabase/supabase-js"
 import type { User } from "@supabase/supabase-js"
 import { Database } from "@/lib/database.types"
+import { handleCookieAction } from "@/lib/actions"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -70,51 +71,22 @@ export function AuthPage({ defaultTab = 'signin', defaultEmail = '' }: AuthPageP
       }
 
       // Check if user exists in users table
-      const { data: existingUser, error: checkError } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('*')
+        .select('role')
         .eq('id', authData.user.id)
         .single()
 
-      if (checkError && checkError.code === 'PGRST116') {
-        // User doesn't exist in users table, create them
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: authData.user.email!,
-            role: 'client',
-            first_name: authData.user.user_metadata.first_name || '',
-            last_name: authData.user.user_metadata.last_name || '',
-            created_at: new Date().toISOString()
-          })
-
-        if (insertError) throw insertError
-
-        toast.success("Signed in successfully")
-        router.push('/client')
-        return
-      }
-
-      if (checkError) throw checkError
+      if (userError) throw userError
 
       toast.success("Signed in successfully")
 
       // Redirect based on role
-      switch (existingUser.role) {
-        case 'admin':
-          router.push('/dashboard/admin-appointments')
-          break
-        case 'client':
-          router.push('/client/dashboard')
-          break
-        case 'employee':
-          router.push('/employee/dashboard')
-          break
-        default:
-          router.push('/client/dashboard')
-      }
+      const redirectPath = userData.role === 'admin' 
+        ? '/dashboard/admin-appointments'
+        : '/client/dashboard'
 
+      router.push(redirectPath)
     } catch (error) {
       console.error('Sign in error:', error)
       if (error instanceof AuthError) {
